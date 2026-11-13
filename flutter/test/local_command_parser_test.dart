@@ -17,6 +17,18 @@ void main() {
     expect(sms?.message, 'See you soon');
   });
 
+  test('unknown installed app name containing Local does not trigger a call', () {
+    final plan = parser.parse('Open My Local Bank App');
+    expect(plan?.action, AssistantAction.openApp);
+    expect(plan?.appName, 'My Local Bank App');
+  });
+
+  test('call requires a standalone English command word', () {
+    expect(parser.parse('Call Alex')?.action, AssistantAction.call);
+    expect(parser.parse('Open PhonePe')?.action, AssistantAction.openApp);
+    expect(parser.parse('Locally stored documents'), isNull);
+  });
+
   test('unknown text falls through for Gemini interpretation', () {
     expect(parser.parse('What is the weather tomorrow?'), isNull);
   });
