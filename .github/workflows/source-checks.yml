@@ -87,3 +87,15 @@ jobs:
           name: jiva-flutter-debug-apk
           path: flutter/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+
+  gateway:
+    name: Gemini gateway syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate server JavaScript syntax
+        working-directory: backend
+        run: npm run check
