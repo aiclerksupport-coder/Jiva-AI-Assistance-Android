@@ -82,6 +82,7 @@ class _AssistantScreenState extends State<AssistantScreen>
   String _reply = "Namaste! I'm Jiva. Speak or type in your language.";
   bool _busy = false;
   bool _planDialogOpen = false;
+  bool _reminderDialogOpen = false;
   bool _enabled = true;
   bool _userToggledAssistant = false;
   bool _listening = false;
@@ -1577,12 +1578,15 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   Future<void> _editReminder() async {
+    if (!mounted || !_enabled || _reminderDialogOpen) return;
+    _reminderDialogOpen = true;
     final wasBusy = _busy;
     _idleTimer?.cancel();
     if (!wasBusy && mounted) setState(() => _busy = true);
     final text = TextEditingController();
     var selected = DateTime.now().add(const Duration(hours: 1));
     var notificationsDisabled = false;
+    var saving = false;
     final reminder = await showDialog<ReminderItem>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -1647,7 +1651,9 @@ class _AssistantScreenState extends State<AssistantScreen>
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () async {
+              onPressed: saving ? null : () async {
+                if (saving) return;
+                updateDialog(() => saving = true);
                 try {
                   if (text.text.trim().isEmpty) {
                     throw ArgumentError('Reminder text cannot be empty.');
@@ -1670,6 +1676,10 @@ class _AssistantScreenState extends State<AssistantScreen>
                   if (dialogContext.mounted) Navigator.pop(dialogContext, result);
                 } catch (error) {
                   _showReply(error.toString());
+                } finally {
+                  if (dialogContext.mounted) {
+                    updateDialog(() => saving = false);
+                  }
                 }
               },
               child: const Text('Schedule'),
@@ -1679,6 +1689,7 @@ class _AssistantScreenState extends State<AssistantScreen>
       ),
     );
     text.dispose();
+    _reminderDialogOpen = false;
     if (reminder != null && mounted) {
       setState(() {
         _reminders.add(reminder);
