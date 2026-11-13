@@ -95,6 +95,7 @@ class _AssistantScreenState extends State<AssistantScreen>
   bool _wakeWordActive = false;
   bool _wakeWordPending = false;
   int _wakeGeneration = 0;
+  bool _wakeGreetingInProgress = false;
   bool _wakeManagerStarted = false;
   bool _screenAccessibilityEnabled = false;
   bool _screenAssistPending = false;
@@ -552,6 +553,10 @@ class _AssistantScreenState extends State<AssistantScreen>
     _wakeManagerStarted = false;
     _wakeWordPending = false;
     _wakeGeneration++;
+    if (_wakeGreetingInProgress) {
+      _wakeGreetingInProgress = false;
+      if (mounted) setState(() => _busy = false);
+    }
     try {
       if (Platform.isAndroid && await FlutterForegroundTask.isRunningService) {
         await FlutterForegroundTask.stopService();
@@ -653,6 +658,7 @@ class _AssistantScreenState extends State<AssistantScreen>
         _pendingPlan != null) return;
     _wakeWordPending = false;
     final generation = ++_wakeGeneration;
+    _wakeGreetingInProgress = true;
     // Claim the UI before awaiting microphone release. Two foreground
     // callbacks can never start two simultaneous greetings/captures.
     setState(() {
@@ -666,13 +672,15 @@ class _AssistantScreenState extends State<AssistantScreen>
       if (!mounted || !_enabled || generation != _wakeGeneration) return;
       await _speakReply('Ji, boliye');
       if (!mounted || !_enabled || generation != _wakeGeneration) return;
+      _wakeGreetingInProgress = false;
       setState(() => _busy = false);
       await _listen();
     } catch (error) {
       _showReply('Wake-word handoff failed: $error');
     } finally {
-      if (mounted && generation == _wakeGeneration && _busy) {
-        setState(() => _busy = false);
+      if (generation == _wakeGeneration && _wakeGreetingInProgress) {
+        _wakeGreetingInProgress = false;
+        if (mounted && _busy) setState(() => _busy = false);
       }
     }
   }
@@ -790,6 +798,10 @@ class _AssistantScreenState extends State<AssistantScreen>
     // Invalidate in-flight greeting so Stop cannot open the mic afterwards.
     _wakeGeneration++;
     _wakeWordPending = false;
+    if (_wakeGreetingInProgress) {
+      _wakeGreetingInProgress = false;
+      if (mounted) setState(() => _busy = false);
+    }
     if (Platform.isAndroid) await JivaSpeech.stop();
     await _speech.stop();
     await _tts.stop();
@@ -827,6 +839,7 @@ class _AssistantScreenState extends State<AssistantScreen>
     if (!enabled) {
       _wakeGeneration++;
       _wakeWordPending = false;
+      _wakeGreetingInProgress = false;
     }
     _idleTimer?.cancel();
     if (!enabled && Platform.isAndroid) await JivaSpeech.stop();
