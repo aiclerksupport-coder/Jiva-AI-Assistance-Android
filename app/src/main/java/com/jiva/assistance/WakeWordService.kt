@@ -200,7 +200,10 @@ class WakeWordService : Service() {
     }
 
     override fun onDestroy() {
-        store.setWakeServiceEnabled(false)
+        // A system-initiated service teardown is not a user opt-out.
+        // ACTION_STOP and the assistant's Off switch already persist false.
+        // Keeping the preference lets the UI offer recovery after process death.
+        wakeHandoff.disarm()
         serviceScope.launch {
             try {
                 managerMutex.withLock {
