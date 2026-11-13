@@ -272,6 +272,9 @@ class _AssistantScreenState extends State<AssistantScreen>
         _wakeWordModels = wakeModels;
         _wakeWordActive = wakeActive && enabled;
         _screenAccessibilityEnabled = screenAccessibilityEnabled;
+        if (_reminderService.restoreWarning != null) {
+          _reply = _reminderService.restoreWarning!;
+        }
       });
       if (wakeActive && enabled) {
         unawaited(_startBackgroundWakeWord(startService: false));
