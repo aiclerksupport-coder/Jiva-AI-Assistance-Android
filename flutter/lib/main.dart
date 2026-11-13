@@ -81,6 +81,7 @@ class _AssistantScreenState extends State<AssistantScreen>
   String _transcript = '';
   String _reply = "Namaste! I'm Jiva. Speak or type in your language.";
   bool _busy = false;
+  bool _planDialogOpen = false;
   bool _enabled = true;
   bool _userToggledAssistant = false;
   bool _listening = false;
@@ -1297,12 +1298,19 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   Future<void> _showPlan(IntentPlan plan) async {
-    if (!_enabled) return;
+    if (!mounted || !_enabled || _planDialogOpen || _busy) return;
+    // Reserve the dialog before async microphone work.
+    _planDialogOpen = true;
     _idleTimer?.cancel();
     try {
       await _pauseWakeWordManager();
     } catch (error) {
+      _planDialogOpen = false;
       _showReply('Could not pause wake-word microphone: $error');
+      return;
+    }
+    if (!mounted || !_enabled) {
+      _planDialogOpen = false;
       return;
     }
     if (mounted) {
@@ -1405,8 +1413,9 @@ class _AssistantScreenState extends State<AssistantScreen>
     number.dispose();
     message.dispose();
     appName.dispose();
+    _planDialogOpen = false;
     if (accepted != null) {
-      await _dispatch(accepted);
+      await _dispatch(accepted, expectedPlan: plan);
     } else if (mounted) {
       setState(() => _pendingPlan = null);
       _resetSleepTimer();
@@ -1452,10 +1461,11 @@ class _AssistantScreenState extends State<AssistantScreen>
         AssistantAction.chat => plan.reply,
       };
 
-  Future<void> _dispatch(IntentPlan plan) async {
-    // Claim the pending action before any await. A double-tap must never
-    // dispatch the same call, message, reminder or navigation twice.
-    if (!mounted || !_enabled || _busy || _pendingPlan != plan) return;
+  Future<void> _dispatch(IntentPlan plan, {required IntentPlan expectedPlan}) async {
+    // The edited/confirmed plan is a copy, so compare its original dialog
+    // identity instead. Reject callbacks from any stale dialog.
+    if (!mounted || !_enabled || _busy ||
+        !identical(_pendingPlan, expectedPlan)) return;
     setState(() {
       _pendingPlan = null;
       _busy = true;
