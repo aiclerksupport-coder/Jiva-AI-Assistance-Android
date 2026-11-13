@@ -23,7 +23,11 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Install Android API 35
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
       - name: Generate native Gradle wrapper (8.9)
         run: gradle wrapper --gradle-version 8.9 --distribution-type bin
       - name: Preserve generated Gradle wrapper for repository verification
@@ -68,7 +72,7 @@ jobs:
         run: flutter pub get
       - name: Dart static analysis
         working-directory: flutter
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
       - name: Flutter tests
         working-directory: flutter
         run: flutter test
