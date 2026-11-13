@@ -832,7 +832,7 @@ class MainActivity : FragmentActivity(), TextToSpeech.OnInitListener {
             })
         }
 
-        if (showKey) AlertDialog(onDismissRequest = { if (!testingKey) showKey = false }, title = { Text("Connect Gemini to Jiva") }, text = {
+        if (showKey) AlertDialog(onDismissRequest = { if (!testingKey) { keyText = ""; keyError = ""; showKey = false } }, title = { Text("Connect Gemini to Jiva") }, text = {
             Column {
                 OutlinedTextField(
                     keyText,
