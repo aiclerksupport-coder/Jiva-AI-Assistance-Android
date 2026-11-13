@@ -1,6 +1,9 @@
 package com.jiva.accessibility
 
 import android.accessibilityservice.AccessibilityService
+import android.app.KeyguardManager
+import android.content.Context
+import com.jiva.accessibility.WindowPackagePolicy
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
@@ -33,6 +36,10 @@ class JivaAccessibilityService : AccessibilityService() {
         }
         try {
             ensureJivaEnabled()
+            check(!isPhoneLocked()) { "Unlock the phone before screen assistance." }
+            check(WindowPackagePolicy.isTrustedTarget(eventPackage, root.packageName?.toString())) {
+                "Active screen changed before Jiva could act. Please review and retry."
+            }
             if (containsPassword(root, 0) || looksPrivate(root, 0)) {
                 throw IllegalStateException(
                     "Screen assistance is blocked on a password, login, banking, or payment screen.",
@@ -41,7 +48,7 @@ class JivaAccessibilityService : AccessibilityService() {
             when (request.type) {
                 REQUEST_READ -> report(request.type, readVisibleScreen(root), "Screen read locally.")
                 REQUEST_CLICK -> {
-                    val clicked = clickVisibleText(request.value.orEmpty())
+                    val clicked = clickVisibleText(request.value.orEmpty(), root)
                     report(
                         request.type,
                         emptyList(),
@@ -50,7 +57,7 @@ class JivaAccessibilityService : AccessibilityService() {
                     )
                 }
                 else -> {
-                    val completed = performScreenAction(request.type)
+                    val completed = performScreenAction(request.type, root)
                     report(
                         request.type,
                         emptyList(),
@@ -125,9 +132,15 @@ class JivaAccessibilityService : AccessibilityService() {
 
     fun clickVisibleText(label: String): Boolean {
         ensureJivaEnabled()
+        if (isPhoneLocked()) return false
+        val root = rootInActiveWindow ?: return false
+        return clickVisibleText(label, root)
+    }
+
+    private fun clickVisibleText(label: String, root: AccessibilityNodeInfo): Boolean {
+        ensureJivaEnabled()
         val normalized = normalize(label)
         require(normalized.isNotEmpty()) { "Enter the visible button text to click." }
-        val root = rootInActiveWindow ?: return false
         if (containsPassword(root, 0) || looksPrivate(root, 0)) {
             throw IllegalStateException("Screen clicks are blocked on private or credential screens.")
         }
@@ -144,7 +157,13 @@ class JivaAccessibilityService : AccessibilityService() {
 
     fun performScreenAction(action: String): Boolean {
         ensureJivaEnabled()
+        if (isPhoneLocked()) return false
         val root = rootInActiveWindow ?: return false
+        return performScreenAction(action, root)
+    }
+
+    private fun performScreenAction(action: String, root: AccessibilityNodeInfo): Boolean {
+        ensureJivaEnabled()
         if (containsPassword(root, 0) || looksPrivate(root, 0)) {
             throw IllegalStateException("Screen actions are blocked on private or credential screens.")
         }
@@ -267,6 +286,9 @@ class JivaAccessibilityService : AccessibilityService() {
         }
         return false
     }
+
+    private fun isPhoneLocked(): Boolean =
+        (getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
 
     private fun ensureJivaEnabled() {
         check(
