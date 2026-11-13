@@ -25,8 +25,10 @@ jobs:
           gradle-version: '8.9'
       - name: Install Android API 35
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Generate native Gradle wrapper (8.9)
+        run: gradle wrapper --gradle-version 8.9 --distribution-type bin
       - name: Compile, test and assemble debug APK
-        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
@@ -45,6 +47,14 @@ jobs:
           channel: stable
           flutter-version: '3.44.9'
           cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Create Flutter launcher resources and wrapper
+        working-directory: flutter
+        run: flutter create . --platforms android --project-name jiva_assistance
       - name: Flutter dependencies
         working-directory: flutter
         run: flutter pub get
@@ -54,3 +64,14 @@ jobs:
       - name: Flutter tests
         working-directory: flutter
         run: flutter test
+
+      - name: Build Flutter debug APK
+        working-directory: flutter
+        run: flutter build apk --debug
+      - name: Upload Flutter debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jiva-flutter-debug-apk
+          path: flutter/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
