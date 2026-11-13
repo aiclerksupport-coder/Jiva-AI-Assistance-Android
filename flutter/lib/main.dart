@@ -426,6 +426,12 @@ class _AssistantScreenState extends State<AssistantScreen>
         await stateSubscription.cancel();
       }
     } catch (error) {
+      // A timed-out TTS utterance must not continue into mic capture.
+      try {
+        await _tts.stop();
+      } catch (_) {
+        // The speech provider may already be gone.
+      }
       if (mounted && _enabled) {
         setState(() {
           _reply = '$_reply\nVoice response failed: $error';
