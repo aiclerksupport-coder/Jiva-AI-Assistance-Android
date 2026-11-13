@@ -16,7 +16,7 @@ This batch is derived from the *existing Jiva source*, cross-checked against:
 
 ## Implemented existing-code fixes
 
-1. Native Kotlin + Flutter **safe app name matching**: normalize whitespace/case; accept one exact match, else only one unique prefix of 4+ characters. No empty app name, no first arbitrary substring match, no ambiguous selection. Kotlin instead shows its existing installed-app chooser; Flutter reports exact-name request. These are conservative existing-UX-compatible choices.
+1. Native Kotlin + Flutter **safe app name matching**: normalize whitespace/case; accept one exact match, else only one unique prefix of 4+ characters. No empty app name, no first arbitrary substring match, no ambiguous selection. Kotlin shows its existing installed-app chooser; Flutter now presents a bounded launcher chooser (name + package) so the owner explicitly selects the intended app. These are conservative existing-UX-compatible choices.
 2. Kotlin app enumeration no longer throws away installed packages that share the same label; deduping uses launcher component rather than display label.
 3. Native Kotlin `launch(intent)` now propagates missing Activity or Android security denial to the confirmation UI instead of silently dropping a failure.
 4. Kotlin and Dart phone policy permits ordinary formatted phone numbers, rejects `*#` USSD/MMI and URI schemes/injection. Call and SMS still open system dialer/composer, **never silently call or send**.
@@ -35,7 +35,7 @@ val index = AppLaunchMatch.select(requested, apps.map { it.first })
 if (index != null) launch(apps[index].second)
 else showInstalledAppChooser()
 ```
-Dart equivalent: `AppLaunchMatch.select(query, apps.map((a) => a.name).toList())`.
+Dart equivalent: `AppLaunchMatch.select(query, apps.map((a) => a.name).toList())`; ambiguous matches open a user-controlled chooser, not an automatic launch.
 
 ### D-02 Duplicate app labels hidden / ambiguous selection (FIXED)
 **Production risk:** Different apps same human-readable label rakh sakte hain; `distinctBy { label }` ek installed app suppress karta tha.
