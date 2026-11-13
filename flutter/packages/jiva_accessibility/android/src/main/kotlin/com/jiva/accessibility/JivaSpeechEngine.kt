@@ -130,12 +130,15 @@ internal class JivaSpeechEngine(
                     closeInput()
                     recognizer = null
                     speechRecognizer.destroy()
-                    sendStatus("idle")
                     if (cancelling) {
                         cancelling = false
                     } else {
+                        // Dart reserves _busy synchronously when it receives
+                        // the result. Notify it before reporting idle so the
+                        // wake listener cannot re-arm between those callbacks.
                         channel.invokeMethod("speechResult", text)
                     }
+                    sendStatus("idle")
                 }
 
                 override fun onPartialResults(partialResults: Bundle?) {
