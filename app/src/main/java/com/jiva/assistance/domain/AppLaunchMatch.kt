@@ -21,7 +21,7 @@ object AppLaunchMatch {
         // "PhonePe" when the owner simply says "Phone".
         if (requested.length < 4) return null
         val prefix = normalized.indices.filter {
-            it.isNotEmpty() && normalized[it].startsWith(requested)
+            normalized[it].isNotEmpty() && normalized[it].startsWith(requested)
         }
         return unique(prefix)
     }
