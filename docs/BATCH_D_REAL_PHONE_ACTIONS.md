@@ -1,7 +1,7 @@
 # Jiva AI — Batch D Real Android Phone Actions
 
 **Original working code:** owner-only PR #10, SHA `771ee70e645e40652bebf3f67d7770e4051adb1a`  
-**Dependent PR:** [#11](https://github.com/aiclerksupport-coder/Jiva-AI-Assistance-Android/pull/11), based on the PR #10 branch until #10 is merged.  
+**PR:** [#11](https://github.com/aiclerksupport-coder/Jiva-AI-Assistance-Android/pull/11), now based on merged `main` at `88374e20ec2143955a9236fd29f34502a31923ba`. PR #10 is merged; owner fingerprint/PIN is preserved.  
 **Language:** Hinglish.
 
 ## Real, working implementation references (not copied)
@@ -101,6 +101,6 @@ Fingerprint/system PIN needed for **Gemini key save/remove**, not for each norma
 
 ## Merge and source safety
 
-Base PR #10 **must be merged before Batch D** is targeted at `main`, or PR #11 can be merged into PR #10 branch first and then #10 merged to `main` after final combined CI. Do not merge Batch D blindly into old `main` because that would omit owner fingerprint/PIN work.
+PR #10 is merged into `main`, and its merged tree SHA was verified identical to the owner PR head before reconciling Batch D with main. Only Batch D files remain changed. PR #11 must have exact final-head CI green before merge.
 
 Check exact diff versus PR #10 head, Kotlin JVM unit suite, Dart analyzer/tests and two debug APK builds. No app ID/version bump, no Gemini key security rewrites, no new cloud account.
