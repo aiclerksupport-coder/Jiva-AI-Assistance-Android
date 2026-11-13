@@ -5,9 +5,11 @@ import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.jiva.assistance.domain.VisibleTargetMatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
+/** User-initiated, one-shot assistance for the currently visible app screen. */
 class JivaAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var pendingRequest: PendingRequest? = null
@@ -21,11 +23,10 @@ class JivaAccessibilityService : AccessibilityService() {
         val request = pendingRequest ?: return
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val eventPackage = event.packageName?.toString().orEmpty()
-        if (eventPackage == packageName ||
-            eventPackage == "com.android.settings" ||
-            eventPackage == "com.android.systemui" ||
-            eventPackage == "android"
+        if (eventPackage.isBlank() || eventPackage == packageName ||
+            eventPackage == "com.android.settings" || eventPackage == "com.android.systemui" || eventPackage == "android"
         ) return
+
         pendingRequest = null
         handler.removeCallbacksAndMessages(null)
         val root = rootInActiveWindow
@@ -38,39 +39,31 @@ class JivaAccessibilityService : AccessibilityService() {
             if (containsPassword(root, 0)) {
                 throw IllegalStateException("Screen assistance is blocked while a password field is visible.")
             }
+            if (looksPrivate(root, 0)) {
+                throw IllegalStateException("Screen assistance is blocked on a screen that appears to contain login, account, or payment information.")
+            }
             when (request.type) {
-                REQUEST_READ -> report(
-                    ScreenAssistResult(request.type, walkVisibleText(root), "Screen read locally."),
-                )
+                REQUEST_READ -> report(ScreenAssistResult(request.type, walkVisibleText(root), "Screen read locally; text stays on this device."))
                 REQUEST_CLICK -> {
                     val clicked = clickVisibleText(request.value.orEmpty())
-                    report(
-                        ScreenAssistResult(
-                            request.type,
-                            emptyList(),
-                            if (clicked) "Visible control clicked." else "The label was not unique or clickable.",
-                        ),
-                    )
+                    val appLabel = applicationLabel(eventPackage)
+                    val result = if (clicked) {
+                        val impact = if (VisibleTargetMatcher.isHighImpactLabel(request.value.orEmpty())) {
+                            " This was a high-impact control; review the outcome in the app."
+                        } else ""
+                        "Clicked the exact visible control “${request.value}” in $appLabel after confirmation.$impact"
+                    } else {
+                        "No action taken: that exact label was absent, disabled, non-clickable, or ambiguous in $appLabel."
+                    }
+                    report(ScreenAssistResult(request.type, emptyList(), result))
                 }
                 else -> {
                     val completed = performScreenAction(request.type)
-                    report(
-                        ScreenAssistResult(
-                            request.type,
-                            emptyList(),
-                            if (completed) "Screen action completed." else "No matching screen action was available.",
-                        ),
-                    )
+                    report(ScreenAssistResult(request.type, emptyList(), if (completed) "Visible screen action completed." else "No matching screen action was available."))
                 }
             }
         } catch (error: Exception) {
-            report(
-                ScreenAssistResult(
-                    request.type,
-                    emptyList(),
-                    error.message ?: "Screen assistance failed.",
-                ),
-            )
+            report(ScreenAssistResult(request.type, emptyList(), error.message ?: "Screen assistance failed."))
         }
     }
 
@@ -78,9 +71,7 @@ class JivaAccessibilityService : AccessibilityService() {
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         if (instance === this) instance = null
-        pendingRequest?.let {
-            report(ScreenAssistResult(it.type, emptyList(), "Accessibility was disabled; request cancelled."))
-        }
+        pendingRequest?.let { report(ScreenAssistResult(it.type, emptyList(), "Accessibility was disabled; request cancelled.")) }
         pendingRequest = null
         handler.removeCallbacksAndMessages(null)
         return super.onUnbind(intent)
@@ -93,20 +84,17 @@ class JivaAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    fun requestVisibleScreenRead() {
-        queueRequest(PendingRequest(REQUEST_READ))
-    }
+    fun requestVisibleScreenRead() = queueRequest(PendingRequest(REQUEST_READ))
 
     fun queueVisibleTextClick(label: String) {
-        val normalized = normalize(label)
-        require(normalized.isNotEmpty()) { "Enter the visible button text to click." }
+        val normalized = VisibleTargetMatcher.normalize(label)
+        require(normalized.isNotEmpty()) { "Enter the exact visible button text to click." }
+        require(normalized.length <= MAX_TEXT_LENGTH) { "Target label is too long." }
         queueRequest(PendingRequest(REQUEST_CLICK, normalized))
     }
 
     fun queueScreenAction(action: String) {
-        require(action in setOf(ACTION_BACK, ACTION_SCROLL_FORWARD, ACTION_SCROLL_BACKWARD)) {
-            "Unsupported screen action."
-        }
+        require(action in setOf(ACTION_BACK, ACTION_SCROLL_FORWARD, ACTION_SCROLL_BACKWARD)) { "Unsupported screen action." }
         queueRequest(PendingRequest(action))
     }
 
@@ -117,13 +105,7 @@ class JivaAccessibilityService : AccessibilityService() {
         handler.postDelayed({
             if (pendingRequest === request) {
                 pendingRequest = null
-                report(
-                    ScreenAssistResult(
-                        request.type,
-                        emptyList(),
-                        "No target app was opened within 30 seconds.",
-                    ),
-                )
+                report(ScreenAssistResult(request.type, emptyList(), "No target app was opened within 30 seconds; no action was taken."))
             }
         }, REQUEST_TIMEOUT_MILLIS)
     }
@@ -134,38 +116,41 @@ class JivaAccessibilityService : AccessibilityService() {
         return lines.take(MAX_LINES)
     }
 
+    /** Exact label, unique clickable ancestor, enabled, current screen only. */
     fun clickVisibleText(label: String): Boolean {
         ensureJivaEnabled()
-        val normalized = normalize(label)
-        require(normalized.isNotEmpty()) { "Enter the visible button text to click." }
+        val normalized = VisibleTargetMatcher.normalize(label)
+        require(normalized.isNotEmpty()) { "Enter the exact visible button text to click." }
         val root = rootInActiveWindow ?: return false
-        if (containsPassword(root, 0)) {
-            throw IllegalStateException("Screen clicks are blocked while a password field is visible.")
-        }
-        val matches = mutableListOf<AccessibilityNodeInfo>()
-        findMatches(root, normalized, matches, 0)
-        if (matches.size != 1) return false
-        var target = matches.single()
-        while (!target.isClickable) {
-            target = target.parent ?: return false
-        }
+        if (containsPassword(root, 0) || looksPrivate(root, 0)) return false
+
+        val targets = linkedMapOf<String, AccessibilityNodeInfo>()
+        collectExactTargets(root, normalized, targets, 0)
+        val resolution = VisibleTargetMatcher.resolve(
+            normalized,
+            targets.map { (identity, node) ->
+                VisibleTargetMatcher.Candidate(
+                    labels = setOf(normalized),
+                    targetIdentity = identity,
+                    visible = node.isVisibleToUser,
+                    clickable = node.isClickable,
+                    enabled = node.isEnabled,
+                )
+            },
+        )
+        val identity = (resolution as? VisibleTargetMatcher.Resolution.Unique)?.targetIdentity ?: return false
+        val target = targets[identity] ?: return false
         return target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
     }
 
     fun performScreenAction(action: String): Boolean {
         ensureJivaEnabled()
         val root = rootInActiveWindow ?: return false
-        if (containsPassword(root, 0)) {
-            throw IllegalStateException("Screen actions are blocked while a password field is visible.")
-        }
+        if (containsPassword(root, 0) || looksPrivate(root, 0)) return false
         return when (action) {
             ACTION_BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
-            ACTION_SCROLL_FORWARD -> findScrollable(root, 0)?.performAction(
-                AccessibilityNodeInfo.ACTION_SCROLL_FORWARD,
-            ) ?: false
-            ACTION_SCROLL_BACKWARD -> findScrollable(root, 0)?.performAction(
-                AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD,
-            ) ?: false
+            ACTION_SCROLL_FORWARD -> findScrollable(root, 0)?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) ?: false
+            ACTION_SCROLL_BACKWARD -> findScrollable(root, 0)?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) ?: false
             else -> false
         }
     }
@@ -182,24 +167,48 @@ class JivaAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun containsPassword(node: AccessibilityNodeInfo, depth: Int): Boolean {
-        if (depth > MAX_DEPTH) return true
-        if (!node.isVisibleToUser) return false
-        if (node.isPassword) return true
-        for (index in 0 until node.childCount) {
-            if (node.getChild(index)?.let { containsPassword(it, depth + 1) } == true) {
-                return true
+    private fun collectExactTargets(
+        node: AccessibilityNodeInfo,
+        target: String,
+        matches: MutableMap<String, AccessibilityNodeInfo>,
+        depth: Int,
+    ) {
+        if (depth > MAX_DEPTH || !node.isVisibleToUser || node.isPassword) return
+        val labels = listOf(node.text?.toString(), node.contentDescription?.toString())
+            .filterNotNull()
+            .map(VisibleTargetMatcher::normalize)
+        if (target in labels) {
+            findClickableAncestor(node)?.let { clickable ->
+                if (clickable.isVisibleToUser && clickable.isEnabled) {
+                    matches.putIfAbsent(targetIdentity(clickable), clickable)
+                }
             }
         }
-        return false
+        if (matches.size > 1) return
+        for (index in 0 until node.childCount) {
+            node.getChild(index)?.let { collectExactTargets(it, target, matches, depth + 1) }
+            if (matches.size > 1) return
+        }
     }
 
-    private fun findScrollable(
-        node: AccessibilityNodeInfo,
-        depth: Int,
-    ): AccessibilityNodeInfo? {
+    private fun findClickableAncestor(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var current: AccessibilityNodeInfo? = node
+        repeat(MAX_DEPTH) {
+            val candidate = current ?: return null
+            if (candidate.isClickable) return candidate.takeIf { it.isEnabled && it.isVisibleToUser }
+            current = candidate.parent
+        }
+        return null
+    }
+
+    private fun targetIdentity(node: AccessibilityNodeInfo): String {
+        val rect = android.graphics.Rect().also(node::getBoundsInScreen)
+        return "${node.windowId}:${node.viewIdResourceName.orEmpty()}:${rect.flattenToString()}"
+    }
+
+    private fun findScrollable(node: AccessibilityNodeInfo, depth: Int): AccessibilityNodeInfo? {
         if (depth > MAX_DEPTH || !node.isVisibleToUser) return null
-        if (node.isScrollable) return node
+        if (node.isScrollable && node.isEnabled) return node
         for (index in 0 until node.childCount) {
             val result = node.getChild(index)?.let { findScrollable(it, depth + 1) }
             if (result != null) return result
@@ -207,11 +216,27 @@ class JivaAccessibilityService : AccessibilityService() {
         return null
     }
 
-    private fun walk(
-        node: AccessibilityNodeInfo,
-        lines: MutableSet<String>,
-        depth: Int,
-    ) {
+    private fun containsPassword(node: AccessibilityNodeInfo, depth: Int): Boolean {
+        if (depth > MAX_DEPTH) return true
+        if (!node.isVisibleToUser) return false
+        if (node.isPassword) return true
+        for (index in 0 until node.childCount) {
+            if (node.getChild(index)?.let { containsPassword(it, depth + 1) } == true) return true
+        }
+        return false
+    }
+
+    private fun looksPrivate(node: AccessibilityNodeInfo, depth: Int): Boolean {
+        if (depth > MAX_DEPTH || !node.isVisibleToUser) return false
+        val visibleText = listOfNotNull(node.text?.toString(), node.contentDescription?.toString()).joinToString(" ")
+        if (VisibleTargetMatcher.looksLikePrivateOrCredentialScreen(visibleText)) return true
+        for (index in 0 until node.childCount) {
+            if (node.getChild(index)?.let { looksPrivate(it, depth + 1) } == true) return true
+        }
+        return false
+    }
+
+    private fun walk(node: AccessibilityNodeInfo, lines: MutableSet<String>, depth: Int) {
         if (depth > MAX_DEPTH || !node.isVisibleToUser || node.isPassword) return
         node.text?.toString()?.let { addVisibleText(it, lines) }
         node.contentDescription?.toString()?.let { addVisibleText(it, lines) }
@@ -226,47 +251,18 @@ class JivaAccessibilityService : AccessibilityService() {
         if (safe.isNotEmpty() && lines.size < MAX_LINES) lines += safe
     }
 
-    private fun findMatches(
-        node: AccessibilityNodeInfo,
-        target: String,
-        matches: MutableList<AccessibilityNodeInfo>,
-        depth: Int,
-    ) {
-        if (depth > MAX_DEPTH || !node.isVisibleToUser || node.isPassword) return
-        val labels = listOf(
-            normalize(node.text?.toString().orEmpty()),
-            normalize(node.contentDescription?.toString().orEmpty()),
-        )
-        if (target in labels && hasClickableAncestor(node)) matches += node
-        if (matches.size > 1) return
-        for (index in 0 until node.childCount) {
-            node.getChild(index)?.let { findMatches(it, target, matches, depth + 1) }
-            if (matches.size > 1) return
-        }
-    }
-
-    private fun hasClickableAncestor(node: AccessibilityNodeInfo): Boolean {
-        var current: AccessibilityNodeInfo? = node
-        repeat(MAX_DEPTH) {
-            if (current?.isClickable == true) return true
-            current = current?.parent
-        }
-        return false
-    }
-
     private fun ensureJivaEnabled() {
-        check(
-            getSharedPreferences("jiva_settings", MODE_PRIVATE)
-                .getBoolean("assistant_enabled", true),
-        ) { "Turn Jiva on before using screen assistance." }
+        check(getSharedPreferences("jiva_settings", MODE_PRIVATE).getBoolean("assistant_enabled", true)) {
+            "Turn Jiva on before using screen assistance."
+        }
     }
 
-    private fun normalize(value: String): String =
-        value.trim().replace(Regex("\\s+"), " ").lowercase()
+    private fun applicationLabel(packageName: String): String = runCatching {
+        val app = packageManager.getApplicationInfo(packageName, 0)
+        packageManager.getApplicationLabel(app).toString()
+    }.getOrDefault("the selected app")
 
-    private fun report(result: ScreenAssistResult) {
-        screenAssistResults.tryEmit(result)
-    }
+    private fun report(result: ScreenAssistResult) { screenAssistResults.tryEmit(result) }
 
     private data class PendingRequest(val type: String, val value: String? = null)
 
@@ -286,8 +282,7 @@ class JivaAccessibilityService : AccessibilityService() {
         private const val MAX_LINES = 150
         private const val MAX_TEXT_LENGTH = 160
 
-        @Volatile
-        var instance: JivaAccessibilityService? = null
+        @Volatile var instance: JivaAccessibilityService? = null
             private set
 
         private val screenAssistResults = MutableSharedFlow<ScreenAssistResult>(extraBufferCapacity = 1)
@@ -295,8 +290,4 @@ class JivaAccessibilityService : AccessibilityService() {
     }
 }
 
-data class ScreenAssistResult(
-    val type: String,
-    val text: List<String>,
-    val message: String,
-)
+data class ScreenAssistResult(val type: String, val text: List<String>, val message: String)
