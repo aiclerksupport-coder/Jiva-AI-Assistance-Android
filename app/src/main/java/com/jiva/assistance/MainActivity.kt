@@ -197,7 +197,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, ProcessedAudioInput.CHANNEL_COUNT)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, ProcessedAudioInput.ENCODING)
             }
-            if (android.os.Build.VERSION.SDK_INT >= 34) putExtra("android.speech.extra.ENABLE_LANGUAGE_DETECTION", true)
+            if (Build.VERSION.SDK_INT >= 34) {
+                // Optional hint; OEM recognizers may ignore language detection.
+                putExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_DETECTION, true)
+            }
         }
         if (input != null) {
             try {
