@@ -1419,7 +1419,6 @@ class _AssistantScreenState extends State<AssistantScreen>
               if ({
                 AssistantAction.call,
                 AssistantAction.sms,
-                AssistantAction.whatsappShare,
               }.contains(plan.action)) ...[
                 const SizedBox(height: 12),
                 TextField(
@@ -1525,7 +1524,7 @@ class _AssistantScreenState extends State<AssistantScreen>
         AssistantAction.sms =>
           'Review the SMS in your messaging app and tap Send there.',
         AssistantAction.whatsappShare =>
-          'Choose the chat and tap Send in WhatsApp. Jiva cannot send silently.',
+          'Choose a messaging app and chat, then tap Send yourself. Jiva cannot send silently.',
         AssistantAction.openSettings =>
           'Jiva opens Android settings; you approve protected changes there.',
         AssistantAction.camera =>
