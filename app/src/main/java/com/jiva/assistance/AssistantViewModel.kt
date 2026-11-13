@@ -1,7 +1,6 @@
 package com.jiva.assistance
 
 import android.app.Application
-import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jiva.assistance.data.ApiKeyStore
@@ -25,6 +24,7 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
     val state: StateFlow<AssistantUiState> = _state.asStateFlow()
 
     fun setInput(value: String) { _state.value = _state.value.copy(input = value) }
+    fun showReply(value: String) { _state.value = _state.value.copy(reply = value, busy = false) }
     fun updatePlan(plan: IntentPlan?) { _state.value = _state.value.copy(pendingPlan = plan) }
     fun dismissPlan() { _state.value = _state.value.copy(pendingPlan = null) }
     fun showReminderEditor() { _state.value = _state.value.copy(showReminderEditor = true) }
@@ -59,15 +59,14 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun parseAndValidate(json: JSONObject): IntentPlan {
-        val action = runCatching { AssistantAction.valueOf(json.optString("action", "CHAT").uppercase()) }
-            .getOrDefault(AssistantAction.CHAT)
+        val action = runCatching { AssistantAction.valueOf(json.optString("action", "CHAT").uppercase()) }.getOrDefault(AssistantAction.CHAT)
         val target = json.optString("settingsTarget", "general").lowercase().takeIf { it in setOf("general", "wifi", "bluetooth", "display", "sound") } ?: "general"
-        val safeMessage = json.optString("message").take(2_000).ifBlank { null }
+        val safeMessage = json.optString("message").take(2_000).takeIf { it.isNotBlank() }
         return IntentPlan(
             action = action,
             reply = json.optString("reply", "What would you like Jiva to do?").take(2_000),
-            appName = json.optString("appName").take(100).ifBlank { null },
-            recipientQuery = json.optString("recipientQuery").take(100).ifBlank { null },
+            appName = json.optString("appName").take(100).takeIf { it.isNotBlank() },
+            recipientQuery = json.optString("recipientQuery").take(100).takeIf { it.isNotBlank() },
             message = safeMessage,
             settingsTarget = target,
         )

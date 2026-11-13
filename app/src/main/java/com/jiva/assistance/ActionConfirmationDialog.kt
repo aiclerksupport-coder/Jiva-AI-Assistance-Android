@@ -2,10 +2,10 @@ package com.jiva.assistance
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.content.Intent
-import android.net.Uri
-import android.provider.ContactsContract
-import android.provider.Settings
+import android.content.Context
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
@@ -17,9 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import com.jiva.assistance.domain.AssistantAction
 import com.jiva.assistance.domain.IntentPlan
@@ -49,9 +46,9 @@ fun ActionConfirmationDialog(
         text = {
             Column {
                 Text(when (plan.action) {
-                    AssistantAction.CALL -> "Jiva will open the system dialer. You must tap Call there."
+                    AssistantAction.CALL -> "Jiva opens the system dialer. You must tap Call there."
                     AssistantAction.SMS -> "Review the SMS in your messaging app and tap Send there."
-                    AssistantAction.WHATSAPP_SHARE -> "Jiva cannot choose a private WhatsApp chat or send automatically. Choose the chat and tap Send in WhatsApp."
+                    AssistantAction.WHATSAPP_SHARE -> "Choose the chat and tap Send in WhatsApp. Jiva cannot send silently."
                     AssistantAction.OPEN_SETTINGS -> "Jiva opens Android settings; you approve and make any protected change there."
                     AssistantAction.CAMERA -> "Open the camera app on this device."
                     AssistantAction.OPEN_APP -> "Open ${plan.appName ?: "the selected app"} if installed."
@@ -68,7 +65,7 @@ fun ActionConfirmationDialog(
             }
         },
         confirmButton = {
-            Button(enabled = !needsContact || plan.phoneNumber != null, onClick = { onConfirm(plan.copy(message = message)) }) {
+            Button(enabled = !needsContact || !plan.phoneNumber.isNullOrBlank(), onClick = { onConfirm(plan.copy(message = message)) }) {
                 Text(if (plan.action == AssistantAction.CALL) "Open dialer" else "Continue")
             }
         },
@@ -77,7 +74,7 @@ fun ActionConfirmationDialog(
 }
 
 @Composable
-fun ReminderEditorDialog(onDismiss: () -> Unit, onSave: (String, Long) -> Unit) {
+fun ReminderEditorDialog(context: Context, onDismiss: () -> Unit, onSave: (String, Long) -> Unit) {
     var text by remember { mutableStateOf("") }
     var hour by remember { mutableStateOf(9) }
     var minute by remember { mutableStateOf(0) }
@@ -90,17 +87,25 @@ fun ReminderEditorDialog(onDismiss: () -> Unit, onSave: (String, Long) -> Unit) 
                 OutlinedTextField(text, { text = it }, label = { Text("What should Jiva remind you?") }, modifier = Modifier.fillMaxWidth())
                 TextButton(onClick = {
                     val current = date
-                    DatePickerDialog(current.get(Calendar.YEAR), current.get(Calendar.MONTH), current.get(Calendar.DAY_OF_MONTH)) { _, y, m, d ->
-                        date = (current.clone() as Calendar).apply { set(y, m, d) }
-                    }.show()
+                    DatePickerDialog(context, { _, year, month, day ->
+                        date = (current.clone() as Calendar).apply { set(year, month, day) }
+                    }, current.get(Calendar.YEAR), current.get(Calendar.MONTH), current.get(Calendar.DAY_OF_MONTH)).show()
                 }) { Text("Choose date") }
                 TextButton(onClick = {
-                    TimePickerDialog(null, { _, h, m -> hour = h; minute = m }, hour, minute, false).show()
+                    TimePickerDialog(context, { _, selectedHour, selectedMinute ->
+                        hour = selectedHour
+                        minute = selectedMinute
+                    }, hour, minute, false).show()
                 }) { Text("Time: %02d:%02d".format(hour, minute)) }
             }
         },
         confirmButton = { Button(onClick = {
-            val trigger = (date.clone() as Calendar).apply { set(Calendar.HOUR_OF_DAY, hour); set(Calendar.MINUTE, minute); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
+            val trigger = (date.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
             if (text.isNotBlank()) onSave(text.trim(), trigger)
         }) { Text("Schedule") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

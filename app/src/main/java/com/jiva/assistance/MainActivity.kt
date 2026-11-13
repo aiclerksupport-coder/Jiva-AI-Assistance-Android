@@ -44,7 +44,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jiva.assistance.domain.AssistantAction
 import com.jiva.assistance.domain.IntentPlan
-import java.util.Calendar
+import com.jiva.assistance.platform.contacts.ContactPicker
 import java.util.Locale
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
@@ -99,16 +99,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val reminderScheduler = remember { ReminderScheduler(this) }
 
         val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
-            if (allowed) listen({ vm.submit(it) }, { vm.setInput(it) })
+            if (allowed) listen({ vm.submit(it) }, { vm.showReply(it) }) else vm.showReply("Microphone permission is needed for voice commands.")
         }
-        val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (!granted) vm.showReply("Reminder scheduled, but notifications are disabled. Enable them in Android Settings to see alerts.")
+        }
         val contactPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val uri = result.data?.data ?: return@rememberLauncherForActivityResult
             val plan = vm.state.value.pendingPlan ?: return@rememberLauncherForActivityResult
-            val contact = contentResolver.query(uri, arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER), null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getString(0).orEmpty() to cursor.getString(1).orEmpty() else null
-            }
-            if (contact != null && contact.second.isNotBlank()) vm.updatePlan(plan.copy(contactName = contact.first, phoneNumber = contact.second))
+            val contact = ContactPicker.readSelectedPhone(contentResolver, uri)
+            if (contact != null) {
+                vm.updatePlan(plan.copy(contactName = contact.displayName, phoneNumber = contact.phoneNumber))
+            } else vm.showReply("Couldn't read a phone number from that contact. Choose another contact.")
         }
 
         MaterialTheme {
@@ -119,7 +121,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             Text("Jiva", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
                             Text("Your assistant · user-controlled", style = MaterialTheme.typography.bodyMedium)
                         }
-                        OutlinedButton(onClick = { showKey = true }) { Text("Gemini key") }
+                        OutlinedButton(onClick = { showKey = true }) { Text(if (vm.hasApiKey()) "Gemini connected" else "Gemini key") }
                     }
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -128,7 +130,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             Text(state.reply, style = MaterialTheme.typography.bodyLarge)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(onClick = {
-                                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) listen({ vm.submit(it) }, { vm.setInput(it) })
+                                    if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) listen({ vm.submit(it) }, { vm.showReply(it) })
                                     else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                                 }, modifier = Modifier.weight(1f)) { Text("🎙 Speak") }
                                 OutlinedButton(onClick = { tts?.stop(); speech?.cancel() }) { Text("Stop") }
@@ -139,7 +141,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     }
                     Text("Quick actions", style = MaterialTheme.typography.titleLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { appItems = queryApps(); showApps = true }) { Text("Apps") }
+                        OutlinedButton(onClick = { appItems = queryApps(); appQuery = ""; showApps = true }) { Text("Apps") }
                         OutlinedButton(onClick = vm::showReminderEditor) { Text("Reminders") }
                         OutlinedButton(onClick = { vm.updatePlan(IntentPlan(AssistantAction.OPEN_SETTINGS, "Open settings?", settingsTarget = "general")) }) { Text("Settings") }
                     }
@@ -149,6 +151,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                         OutlinedButton(onClick = { vm.updatePlan(IntentPlan(AssistantAction.CAMERA, "Open camera?")) }) { Text("Camera") }
                     }
                     Text("Upcoming reminders", style = MaterialTheme.typography.titleLarge)
+                    if (state.reminders.isEmpty()) Text("No reminders scheduled.")
                     state.reminders.forEach { Text("• ${it.text} — ${java.text.DateFormat.getDateTimeInstance().format(it.triggerAtMillis)}") }
                     Text("Speech languages depend on your phone's speech service. Gemini requests send text to Google using your key. Sensitive actions require your review.", style = MaterialTheme.typography.bodySmall)
                 }
@@ -157,13 +160,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
         state.pendingPlan?.let { plan ->
             ActionConfirmationDialog(plan = plan, onDismiss = vm::dismissPlan, onPickContact = {
-                contactPicker.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI))
+                contactPicker.launch(ContactPicker.pickPhoneIntent())
             }, onConfirm = { confirmed ->
                 vm.dismissPlan()
                 when (confirmed.action) {
                     AssistantAction.CALL -> launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(confirmed.phoneNumber.orEmpty())}")))
                     AssistantAction.SMS -> launch(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(confirmed.phoneNumber.orEmpty())}")).putExtra("sms_body", confirmed.message.orEmpty()))
-                    AssistantAction.WHATSAPP_SHARE -> launch(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, confirmed.message.orEmpty()), "Choose WhatsApp or another app"))
+                    AssistantAction.WHATSAPP_SHARE -> launch(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, confirmed.message.orEmpty()), "Choose a messaging app"))
                     AssistantAction.OPEN_SETTINGS -> launch(settingsIntent(confirmed.settingsTarget))
                     AssistantAction.CAMERA -> launch(Intent("android.media.action.IMAGE_CAPTURE"))
                     AssistantAction.OPEN_APP -> {
@@ -182,8 +185,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 OutlinedTextField(keyText, { keyText = it }, label = { Text("Your Gemini API key") }, modifier = Modifier.fillMaxWidth())
                 Text("Encrypted on this device with Android Keystore. Requests go to Google. A compromised device can expose client-side keys.")
             }
-        }, confirmButton = { TextButton(onClick = { runCatching { com.jiva.assistance.data.ApiKeyStore(this).save(keyText.trim()) }; keyText = ""; showKey = false }) { Text("Save") } }, dismissButton = {
-            TextButton(onClick = { com.jiva.assistance.data.ApiKeyStore(this).clear(); keyText = ""; showKey = false }) { Text("Remove key") }
+        }, confirmButton = { TextButton(onClick = {
+            runCatching { vm.saveApiKey(keyText.trim()) }.onFailure { vm.showReply(it.message ?: "Couldn't save that API key.") }
+            keyText = ""; showKey = false
+        }) { Text("Save") } }, dismissButton = {
+            TextButton(onClick = { vm.clearApiKey(); keyText = ""; showKey = false }) { Text("Remove key") }
         })
 
         if (showApps) AlertDialog(onDismissRequest = { showApps = false }, title = { Text("Choose an installed app") }, text = {
@@ -197,11 +203,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }, confirmButton = { TextButton(onClick = { showApps = false }) { Text("Close") } })
 
-        if (state.showReminderEditor) ReminderEditorDialog(onDismiss = vm::closeReminderEditor, onSave = { text, time ->
-            reminderScheduler.schedule(text, time).onSuccess { reminder ->
-                vm.setReminders(reminderScheduler.list()); vm.closeReminderEditor()
+        if (state.showReminderEditor) ReminderEditorDialog(context = this, onDismiss = vm::closeReminderEditor, onSave = { text, time ->
+            reminderScheduler.schedule(text, time).onSuccess {
+                vm.setReminders(reminderScheduler.list()); vm.closeReminderEditor(); vm.showReply("Reminder scheduled: $text")
                 if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }.onFailure { vm.updatePlan(null) }
+            }.onFailure { vm.showReply(it.message ?: "Couldn't schedule reminder.") }
         })
 
         LaunchedEffect(Unit) { vm.setReminders(reminderScheduler.list()) }
@@ -223,7 +229,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         else -> Intent(Settings.ACTION_SETTINGS)
     }
 
-    private fun launch(intent: Intent) { runCatching { startActivity(intent) } }
+    private fun launch(intent: Intent) {
+        runCatching { startActivity(intent) }.onFailure { /* TODO: surface unavailable-action state in UI. */ }
+    }
 
     override fun onDestroy() { speech?.destroy(); tts?.shutdown(); super.onDestroy() }
 }
