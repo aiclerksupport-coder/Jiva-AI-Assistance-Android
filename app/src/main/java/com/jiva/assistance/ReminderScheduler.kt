@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.jiva.assistance.domain.ReminderItem
+import com.jiva.assistance.domain.ReminderIdPolicy
 
 class ReminderScheduler(private val context: Context) {
     private val prefs = context.getSharedPreferences("jiva_reminders", Context.MODE_PRIVATE)
@@ -17,19 +18,43 @@ class ReminderScheduler(private val context: Context) {
     fun schedule(text: String, triggerAtMillis: Long): Result<ReminderItem> = runCatching {
         require(text.isNotBlank()) { "Reminder text cannot be empty." }
         require(triggerAtMillis > System.currentTimeMillis()) { "Choose a time in the future." }
-        val id = java.util.UUID.randomUUID().hashCode()
-        val reminder = ReminderItem(id, text.trim(), triggerAtMillis)
-        val intent = Intent(context, ReminderReceiver::class.java).putExtra("id", id).putExtra("text", reminder.text)
-        val pending = PendingIntent.getBroadcast(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        context.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
-        val entries = (prefs.getStringSet("items", emptySet()) ?: emptySet()).toMutableSet()
-        entries.add("$id|$triggerAtMillis|${reminder.text.replace("|", " ")}")
-        prefs.edit().putStringSet("items", entries).apply()
-        reminder
+        require(text.trim().length <= 2000) { "Reminder text is too long." }
+        // Synchronize the persistent ID allocation and write: two rapid
+        // schedule calls must never reuse a PendingIntent request code.
+        synchronized(reminderLock) {
+            val existing = (prefs.getStringSet("items", emptySet()) ?: emptySet()).toSet()
+            val used = existing.mapNotNull { it.substringBefore('|').toIntOrNull() }.toSet()
+            val id = ReminderIdPolicy.next(used)
+            val reminder = ReminderItem(id, text.trim(), triggerAtMillis)
+            val row = "$id|$triggerAtMillis|${reminder.text.replace("|", " ")}"
+            val intent = Intent(context, ReminderReceiver::class.java)
+                .putExtra("id", id).putExtra("text", reminder.text)
+            val pending = PendingIntent.getBroadcast(
+                context, id, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val newEntries = existing + row
+            check(prefs.edit().putStringSet("items", newEntries).commit()) {
+                "Could not store reminder on this phone."
+            }
+            try {
+                context.getSystemService(AlarmManager::class.java)
+                    .setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pending)
+            } catch (error: Exception) {
+                // Never leave an apparently scheduled entry when AlarmManager
+                // rejects it. Restore the exact previous persistent snapshot.
+                prefs.edit().putStringSet("items", existing).commit()
+                PendingIntent.getBroadcast(context, id, intent,
+                    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)
+                    ?.let { context.getSystemService(AlarmManager::class.java).cancel(it) }
+                throw error
+            }
+            reminder
+        }
     }
 
     /** Re-register alarms after reboot or package replacement. Past entries are dropped. */
-    fun restorePending() {
+    fun restorePending() = synchronized(reminderLock) {
         val now = System.currentTimeMillis()
         val valid = list().filter { it.triggerAtMillis > now }
         for (reminder in valid) {
@@ -47,6 +72,11 @@ class ReminderScheduler(private val context: Context) {
             "items",
             valid.map { "${it.id}|${it.triggerAtMillis}|${it.text.replace("|", " ")}" }.toSet(),
         ).apply()
+    }
+
+    companion object {
+        // Shared across scheduler instances and the alarm receiver.
+        internal val reminderLock = Any()
     }
 
     fun list(): List<ReminderItem> = (prefs.getStringSet("items", emptySet()) ?: emptySet()).mapNotNull { row ->
@@ -72,7 +102,12 @@ class ReminderReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .build())
         val prefs = context.getSharedPreferences("jiva_reminders", Context.MODE_PRIVATE)
-        prefs.edit().putStringSet("items", (prefs.getStringSet("items", emptySet()) ?: emptySet()).filterNot { it.startsWith("$id|") }.toSet()).apply()
+        synchronized(ReminderScheduler.reminderLock) {
+            val existing = prefs.getStringSet("items", emptySet()) ?: emptySet()
+            prefs.edit().putStringSet(
+                "items", existing.filterNot { it.startsWith("$id|") }.toSet(),
+            ).commit()
+        }
     }
 }
 
