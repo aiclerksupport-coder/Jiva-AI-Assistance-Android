@@ -34,7 +34,7 @@ class WakeHandoffGateTest {
         }
         start.countDown()
         threads.forEach { it.join(3_000) }
-        assertTrue(threads.none(Thread::isAlive))
+        assertTrue(threads.none { it.isAlive })
         assertTrue(results.size == 12)
         assertTrue(results.count { it } == 1)
     }
