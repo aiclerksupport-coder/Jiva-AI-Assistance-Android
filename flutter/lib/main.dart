@@ -5,6 +5,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'domain/wake_event_policy.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
@@ -615,8 +616,14 @@ class _AssistantScreenState extends State<AssistantScreen>
     }
     // One wake event per microphone handoff. Ignore callback storms and
     // detections arriving while a command or another capture is active.
-    if (!_wakeWordActive || _wakeWordPending || _busy || _listening ||
-        _pendingPlan != null) return;
+    if (!WakeEventPolicy.shouldQueue(
+      enabled: _enabled,
+      active: _wakeWordActive,
+      pending: _wakeWordPending,
+      busy: _busy,
+      listening: _listening,
+      hasActionPlan: _pendingPlan != null,
+    )) return;
     _wakeWordPending = true;
     unawaited(_pauseWakeWordManager());
     unawaited(
