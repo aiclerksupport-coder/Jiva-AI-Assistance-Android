@@ -298,19 +298,28 @@ class _AssistantScreenState extends State<AssistantScreen>
   Future<void> _submit([String? value]) async {
     final text = (value ?? _input.text).trim();
     if (text.isEmpty || _busy || !_enabled) return;
+    // Reserve the command synchronously before the first await: voice and taps
+    // can otherwise both enter while the microphone is being paused.
+    setState(() {
+      _busy = true;
+      _sleeping = false;
+      _pendingPlan = null;
+    });
     _idleTimer?.cancel();
     try {
       await _pauseWakeWordManager();
     } catch (error) {
+      if (mounted) setState(() => _busy = false);
       _showReply('Could not pause wake-word microphone: $error');
+      return;
+    }
+    if (!mounted || !_enabled) {
+      if (mounted) setState(() => _busy = false);
       return;
     }
     setState(() {
       _input.clear();
       _transcript = text;
-      _busy = true;
-      _sleeping = false;
-      _pendingPlan = null;
     });
     final local = _parser.parse(text);
     if (local != null) {
@@ -1444,15 +1453,18 @@ class _AssistantScreenState extends State<AssistantScreen>
       };
 
   Future<void> _dispatch(IntentPlan plan) async {
-    if (!_enabled) return;
-    _idleTimer?.cancel();
-    await _pauseWakeWordManager();
+    // Claim the pending action before any await. A double-tap must never
+    // dispatch the same call, message, reminder or navigation twice.
+    if (!mounted || !_enabled || _busy || _pendingPlan != plan) return;
     setState(() {
       _pendingPlan = null;
       _busy = true;
       _sleeping = false;
     });
+    _idleTimer?.cancel();
     try {
+      await _pauseWakeWordManager();
+      if (!mounted || !_enabled) return;
       switch (plan.action) {
         case AssistantAction.call:
           await _launch(Uri(scheme: 'tel', path: plan.phoneNumber));
