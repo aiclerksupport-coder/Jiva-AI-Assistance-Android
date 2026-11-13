@@ -17,7 +17,7 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.os.Build
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,10 +51,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jiva.assistance.domain.AssistantAction
+import com.jiva.assistance.security.OwnerKeyAuthorization
 import com.jiva.assistance.domain.IntentPlan
 import com.jiva.assistance.domain.VoicePresets
 import com.jiva.assistance.data.WakeWordModelImporter
@@ -69,7 +71,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.collect
 
-class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
+class MainActivity : FragmentActivity(), TextToSpeech.OnInitListener {
     private var speech: SpeechRecognizer? = null
     private var processedAudioInput: ProcessedAudioInput? = null
     private var cancellingSpeech = false
@@ -278,6 +280,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         var keyError by remember { mutableStateOf("") }
         var wakeSetupError by remember { mutableStateOf("") }
         var testingKey by remember { mutableStateOf(false) }
+        val ownerKeyAuthorization = remember { OwnerKeyAuthorization(this@MainActivity) }
         var keyVerified by remember { mutableStateOf(false) }
         var pendingWakeModelName by remember { mutableStateOf("jiva") }
         var wakeModels by remember { mutableStateOf(vm.wakeWordModels()) }
@@ -829,7 +832,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             })
         }
 
-        if (showKey) AlertDialog(onDismissRequest = { if (!testingKey) showKey = false }, title = { Text("Connect Gemini to Jiva") }, text = {
+        if (showKey) AlertDialog(onDismissRequest = { if (!testingKey) { keyText = ""; keyError = ""; showKey = false } }, title = { Text("Connect Gemini to Jiva") }, text = {
             Column {
                 OutlinedTextField(
                     keyText,
@@ -840,8 +843,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     label = { Text("Your Gemini API key") },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !testingKey,
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
                 )
-                Text("Encrypted on this device with Android Keystore. Gemini receives your text; Live voice uses a WebSocket URL containing the key. Use short-lived tokens from a backend for production.")
+                Text("Your key is encrypted with Android Keystore on this phone. Saving or removing it requires your phone fingerprint or lock-screen PIN/password. No Firebase account is needed. Gemini calls still require internet and use your own API key.")
                 if (keyError.isNotBlank()) Text(keyError, color = MaterialTheme.colorScheme.error)
             }
         }, confirmButton = {
@@ -851,24 +856,55 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     testingKey = true
                     keyError = ""
                     coroutineScope.launch {
-                        vm.verifyAndSaveApiKey(keyText.trim()) { attempt, _ ->
-                            vm.showGeminiRetryStatus("Gemini key verification", attempt)
-                        }
-                            .onSuccess {
-                                keyVerified = true
-                                keyText = ""
-                                showKey = false
-                                vm.showReply("Gemini key and model access verified.")
+                        try {
+                            if (!ownerKeyAuthorization.authenticate("save")) {
+                                keyError = "Phone fingerprint or screen-lock verification is required."
+                                return@launch
                             }
-                            .onFailure { keyError = it.message ?: "Gemini API verification failed." }
-                        testingKey = false
+                            vm.verifyAndSaveApiKey(keyText.trim()) { attempt, _ ->
+                                vm.showGeminiRetryStatus("Gemini key verification", attempt)
+                            }
+                                .onSuccess {
+                                    keyVerified = true
+                                    keyText = ""
+                                    showKey = false
+                                    vm.showReply("Gemini key verified and saved securely on this phone.")
+                                }
+                                .onFailure { keyError = it.message ?: "Gemini API verification failed." }
+                        } catch (_: Exception) {
+                            keyError = "Could not verify owner or save Gemini key."
+                        } finally {
+                            testingKey = false
+                        }
                     }
                 },
             ) { Text(if (testingKey) "Testing…" else "Test & save") }
         }, dismissButton = {
             TextButton(
                 enabled = !testingKey,
-                onClick = { vm.clearApiKey(); keyText = ""; keyVerified = false; showKey = false },
+                onClick = {
+                    if (!testingKey) {
+                        testingKey = true
+                        keyError = ""
+                        coroutineScope.launch {
+                            try {
+                                if (!ownerKeyAuthorization.authenticate("remove")) {
+                                    keyError = "Phone fingerprint or screen-lock verification is required."
+                                    return@launch
+                                }
+                                vm.clearApiKey()
+                                keyText = ""
+                                keyVerified = false
+                                showKey = false
+                                vm.showReply("Gemini API key removed from this phone.")
+                            } catch (_: Exception) {
+                                keyError = "Could not verify owner or remove Gemini key."
+                            } finally {
+                                testingKey = false
+                            }
+                        }
+                    }
+                },
             ) { Text("Remove key") }
         })
 

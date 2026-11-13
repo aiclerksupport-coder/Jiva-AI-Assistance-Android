@@ -26,6 +26,7 @@ import 'domain/action_policy.dart';
 import 'domain/assistant_models.dart';
 import 'domain/local_command_parser.dart';
 import 'services/api_key_store.dart';
+import 'services/owner_key_authorization.dart';
 import 'services/gemini_repository.dart';
 import 'services/gemini_live_client.dart';
 import 'services/gemini_retry_policy.dart';
@@ -67,6 +68,7 @@ class _AssistantScreenState extends State<AssistantScreen>
   final _screenTarget = TextEditingController();
   final _parser = LocalCommandParser();
   final _keyStore = ApiKeyStore(_secureStorage);
+  final _ownerKeyAuth = OwnerKeyAuthorization();
   late GeminiRepository _gemini = GeminiRepository();
   final _geminiLive = GeminiLiveClient();
   final _reminderService = ReminderService(_secureStorage);
@@ -84,6 +86,7 @@ class _AssistantScreenState extends State<AssistantScreen>
   bool _busy = false;
   bool _planDialogOpen = false;
   bool _reminderDialogOpen = false;
+  bool _keySettingsOpen = false;
   bool _enabled = true;
   bool _userToggledAssistant = false;
   bool _listening = false;
@@ -1073,94 +1076,122 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   Future<void> _openKeySettings() async {
+    if (!mounted || _keySettingsOpen) return;
+    _keySettingsOpen = true;
     _idleTimer?.cancel();
-    try {
-      await _pauseWakeWordManager();
-    } catch (error) {
-      _showReply('Could not pause wake-word microphone: $error');
-      return;
-    }
-    if (!mounted) return;
     final controller = TextEditingController();
-    final save = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Connect Gemini to Jiva'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Your Gemini API key'),
+    try {
+      // Do not listen to voice while the owner types a private API key or
+      // verifies the device's lock-screen credential.
+      await _pauseWakeWordManager();
+      if (!mounted) return;
+
+      final action = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Owner Gemini API key'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Your Gemini API key'),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Stored encrypted on this phone. Saving or removing requires '
+                'your phone fingerprint or real screen-lock PIN/password. '
+                'Jiva does not collect your PIN or need Firebase login.',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Remove key'),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Stored securely on this device. Gemini receives your text; '
-              'Live voice uses a WebSocket URL containing the key. Use '
-              'short-lived tokens from a backend for production.',
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Test & save'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await _keyStore.clear();
-              if (context.mounted) Navigator.pop(context, false);
-            },
-            child: const Text('Remove key'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Test & save'),
-          ),
-        ],
-      ),
-    );
-    if (save == true) {
-      try {
+      );
+      if (action == null || !mounted) return;
+
+      // A NEW OS authentication is required for EVERY storage mutation.
+      // Do not reuse a successful authentication for another operation.
+      final permitted = await _ownerKeyAuth.confirm(action ? 'save' : 'remove');
+      if (!mounted) return;
+      if (!permitted) {
+        _showReply('Owner verification cancelled or unavailable. Gemini key unchanged.');
+        return;
+      }
+
+      if (action) {
+        final key = controller.text.trim();
+        if (key.isEmpty) {
+          _showReply('Enter a Gemini API key before saving.');
+          return;
+        }
         setState(() {
           _busy = true;
           _reply = 'Verifying Gemini key and model access…';
         });
-        await _gemini.verifyApiKey(
-          controller.text.trim(),
-          onRetry: (attempt, _) {
-            if (mounted && _enabled) {
-              setState(() {
-                _reply =
-                    'Gemini key verification interrupted. Retrying (${attempt + 1}/${GeminiRetryPolicy.maxAttempts})…';
-              });
-            }
-          },
-        );
-        await _keyStore.save(controller.text);
-        if (mounted) {
-          setState(() {
-            _busy = false;
-            _hasApiKey = true;
-            _keyVerified = true;
-            _reply = 'Gemini key and model access verified.';
-          });
+        try {
+          await _gemini.verifyApiKey(
+            key,
+            onRetry: (attempt, _) {
+              if (mounted && _enabled) {
+                setState(() {
+                  _reply =
+                      'Gemini verification interrupted. Retrying (${attempt + 1}/${GeminiRetryPolicy.maxAttempts})…';
+                });
+              }
+            },
+          );
+          await _keyStore.save(key);
+          if (mounted) {
+            setState(() {
+              _hasApiKey = true;
+              _keyVerified = true;
+              _reply = 'Owner verified. Gemini key saved encrypted on this phone.';
+            });
+          }
+        } catch (_) {
+          _showReply('Gemini verification or secure storage failed. Key not changed.');
+        } finally {
+          if (mounted) setState(() => _busy = false);
         }
-      } catch (error) {
-        _showReply(error.toString());
-      } finally {
-        if (mounted) {
-          setState(() => _busy = false);
-          _resetSleepTimer();
+      } else {
+        try {
+          await _keyStore.clear();
+          if (mounted) {
+            setState(() {
+              _hasApiKey = false;
+              _keyVerified = false;
+              _reply = 'Owner verified. Gemini API key removed from this phone.';
+            });
+          }
+        } catch (_) {
+          _showReply('Secure Gemini key removal failed. Please try again.');
         }
       }
-    } else if (save == false && mounted) {
-      setState(() {
-        _hasApiKey = false;
-        _keyVerified = false;
-      });
-    }
-    controller.dispose();
-    if (mounted) {
-      _resetSleepTimer();
-      await _resumeWakeWordManager();
+    } catch (_) {
+      _showReply('Could not open owner key settings securely.');
+    } finally {
+      controller.clear();
+      controller.dispose();
+      _keySettingsOpen = false;
+      if (mounted) {
+        _resetSleepTimer();
+        try {
+          await _resumeWakeWordManager();
+        } catch (_) {
+          _showReply('Could not resume wake-word microphone after key settings.');
+        }
+      }
     }
   }
 

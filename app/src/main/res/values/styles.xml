@@ -1,0 +1,6 @@
+<resources>
+    <!-- AppCompat theme is needed for AndroidX BiometricPrompt on older Android. -->
+    <style name="JivaTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
