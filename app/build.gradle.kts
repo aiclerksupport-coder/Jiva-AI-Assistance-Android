@@ -21,7 +21,25 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+    // These are public Firebase app identifiers, NEVER a server Gemini key.
+    val gatewayUrl = (project.findProperty("jivaGatewayUrl") as? String).orEmpty()
+    val firebaseProject = (project.findProperty("jivaFirebaseProjectId") as? String).orEmpty()
+    val firebaseApp = (project.findProperty("jivaFirebaseAppId") as? String).orEmpty()
+    val firebaseWebKey = (project.findProperty("jivaFirebaseWebApiKey") as? String).orEmpty()
+    val forceGateway = (project.findProperty("jivaRequireGateway") as? String) == "true"
+    fun stringLiteral(value: String): String =
+        "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+    defaultConfig {
+        buildConfigField("String", "JIVA_GATEWAY_URL", stringLiteral(gatewayUrl))
+        buildConfigField("String", "JIVA_FIREBASE_PROJECT_ID", stringLiteral(firebaseProject))
+        buildConfigField("String", "JIVA_FIREBASE_APP_ID", stringLiteral(firebaseApp))
+        buildConfigField("String", "JIVA_FIREBASE_WEB_API_KEY", stringLiteral(firebaseWebKey))
+        buildConfigField("boolean", "JIVA_REQUIRE_GATEWAY", forceGateway.toString())
+    }
 }
 
 dependencies {
@@ -35,6 +53,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+    implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-appcheck")
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("ai.picovoice:porcupine-android:4.0.2")
 
