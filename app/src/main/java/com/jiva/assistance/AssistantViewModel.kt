@@ -7,6 +7,7 @@ import com.jiva.assistance.data.ApiKeyStore
 import com.jiva.assistance.data.GeminiLiveClient
 import com.jiva.assistance.data.GeminiRepository
 import com.jiva.assistance.data.GeminiRetryPolicy
+import com.jiva.assistance.data.JivaGatewayRuntime
 import com.jiva.assistance.domain.AssistantAction
 import com.jiva.assistance.domain.AssistantUiState
 import com.jiva.assistance.domain.IntentPlan
@@ -28,6 +29,7 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
     private val gemini = GeminiRepository()
     private val geminiLive = GeminiLiveClient()
     private val keyStore = ApiKeyStore(application)
+    private val secureGateway by lazy { JivaGatewayRuntime.client(application) }
     private val preferences = application.getSharedPreferences("jiva_settings", Application.MODE_PRIVATE)
     private val _state = MutableStateFlow(AssistantUiState())
     val state: StateFlow<AssistantUiState> = _state.asStateFlow()
@@ -148,6 +150,10 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
             isSleeping = false,
             reply = "Ji, boliye",
         )
+        if (JivaGatewayRuntime.required) {
+            scheduleSleepTimer() // Activity uses local TTS for the wake greeting.
+            return
+        }
         val key = try {
             keyStore.read()
         } catch (error: Exception) {
@@ -166,7 +172,10 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
         preferences.edit().putString("voice", selected).apply()
         _state.value = _state.value.copy(selectedVoice = selected)
     }
-    fun saveApiKey(value: String) { keyStore.save(value) }
+    fun saveApiKey(value: String) {
+        check(!JivaGatewayRuntime.required) { "Client Gemini keys are disabled in secure releases." }
+        keyStore.save(value)
+    }
     fun clearApiKey() { keyStore.clear() }
     fun savePicovoiceAccessKey(value: String) { keyStore.savePicovoiceAccessKey(value) }
     fun clearWakeWordConfig() {
@@ -180,11 +189,14 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
     fun wakeWordServiceEnabled(): Boolean = keyStore.isWakeServiceEnabled()
     fun setWakeWordServiceEnabled(enabled: Boolean) { keyStore.setWakeServiceEnabled(enabled) }
     fun stopSpeech() { geminiLive.stopPlayback() }
-    fun hasApiKey(): Boolean = runCatching { keyStore.read().isNotBlank() }.getOrDefault(false)
+    fun hasApiKey(): Boolean = !JivaGatewayRuntime.required &&
+        runCatching { keyStore.read().isNotBlank() }.getOrDefault(false)
     suspend fun verifyAndSaveApiKey(
         value: String,
         onRetry: (attempt: Int, error: Throwable) -> Unit = { _, _ -> },
-    ): Result<Unit> = gemini.verifyApiKey(value, onRetry).mapCatching { keyStore.save(value) }
+    ): Result<Unit> = if (JivaGatewayRuntime.required) {
+        Result.failure(IllegalStateException("Use your verified Jiva account, not a client Gemini API key."))
+    } else gemini.verifyApiKey(value, onRetry).mapCatching { keyStore.save(value) }
 
     fun submit(value: String = _state.value.input) {
         val text = value.trim()
@@ -197,18 +209,22 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
             speakReplyIfConfigured(local.reply)
             return
         }
-        val key = runCatching { keyStore.read() }.getOrDefault("")
-        if (key.isBlank()) {
+        val key = if (JivaGatewayRuntime.required) "" else
+            runCatching { keyStore.read() }.getOrDefault("")
+        if (!JivaGatewayRuntime.required && key.isBlank()) {
             _state.value = _state.value.copy(busy = false, reply = "I didn't recognize that command. Connect your own Gemini API key for multilingual natural-language understanding.")
             scheduleSleepTimer()
             return
         }
         commandJob = viewModelScope.launch {
-            gemini.interpret(key, text) { attempt, _ ->
+            val result = if (JivaGatewayRuntime.required) {
+                runCatching { secureGateway.interpret(text) }
+            } else gemini.interpret(key, text) { attempt, _ ->
                 _state.value = _state.value.copy(
                     reply = "Gemini connection interrupted. Retrying (${attempt + 1}/${GeminiRetryPolicy.MAX_ATTEMPTS})…",
                 )
-            }.onSuccess { json ->
+            }
+            result.onSuccess { json ->
                 if (!_state.value.enabled) return@launch
                 val plan = parseAndValidate(json)
                 _state.value = _state.value.copy(
@@ -228,12 +244,12 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun speakReplyIfConfigured(reply: String) {
         val key = try {
-            keyStore.read()
+            if (JivaGatewayRuntime.required) "" else keyStore.read()
         } catch (error: Exception) {
             _state.value = _state.value.copy(reply = "${_state.value.reply}\nVoice unavailable: ${error.message ?: "Could not read the saved API key."}")
             return
         }
-        if (key.isNotBlank()) {
+        if (JivaGatewayRuntime.required || key.isNotBlank()) {
             _state.value = _state.value.copy(busy = true)
             commandJob = viewModelScope.launch { speakReply(key, reply) }
         } else scheduleSleepTimer()
@@ -241,7 +257,14 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
 
     private suspend fun speakReply(apiKey: String, reply: String) {
         try {
-            geminiLive.respondAndSpeak(apiKey, reply, _state.value.selectedVoice) { attempt, _ ->
+            geminiLive.respondAndSpeak(
+                apiKey,
+                reply,
+                _state.value.selectedVoice,
+                ephemeralTokenProvider = if (JivaGatewayRuntime.required) {
+                    { secureGateway.liveToken() }
+                } else null,
+            ) { attempt, _ ->
                 if (_state.value.enabled) {
                     _state.value = _state.value.copy(
                         reply = "Gemini voice connection interrupted. Retrying (${attempt + 1}/${GeminiRetryPolicy.MAX_ATTEMPTS})…",
