@@ -17,6 +17,7 @@ class ReminderService {
       FlutterLocalNotificationsPlugin();
   bool _schedulePending = false;
   int _nextIdSeed = 1;
+  String? restoreWarning;
 
   Future<void> initialize() async {
     tz_data.initializeTimeZones();
@@ -33,7 +34,15 @@ class ReminderService {
     // Reconcile durable entries against the OS plugin's pending requests.
     // A crash between secure-storage write and Android alarm registration
     // must not leave a future reminder permanently dormant.
-    await restorePending();
+    try {
+      await restorePending();
+      restoreWarning = null;
+    } catch (_) {
+      // A disabled OS notification channel or OEM alarm failure must never
+      // prevent Jiva's entire assistant UI from initializing.
+      restoreWarning =
+          'Some reminders could not be restored. Check notification permissions and battery settings.';
+    }
   }
 
   Future<void> restorePending() async {
@@ -42,9 +51,17 @@ class ReminderService {
     try {
       final scheduled = await _notifications.pendingNotificationRequests();
       final activeIds = scheduled.map((item) => item.id).toSet();
+      var failures = 0;
       for (final reminder in await list()) {
         if (activeIds.contains(reminder.id)) continue;
-        await _scheduleNotification(reminder);
+        try {
+          await _scheduleNotification(reminder);
+        } catch (_) {
+          failures++;
+        }
+      }
+      if (failures > 0) {
+        throw StateError('$failures pending reminder(s) could not be restored.');
       }
     } finally {
       _schedulePending = false;
