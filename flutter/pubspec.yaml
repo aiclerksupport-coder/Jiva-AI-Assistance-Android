@@ -20,6 +20,7 @@ dependencies:
   http: ^1.2.2
   image_picker: ^1.1.2
   installed_apps: ^2.2.1
+  local_auth: ^3.0.2
   jiva_accessibility:
     path: packages/jiva_accessibility
   path_provider: ^2.1.6
