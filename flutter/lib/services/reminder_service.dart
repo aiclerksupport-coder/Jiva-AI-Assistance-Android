@@ -6,6 +6,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/assistant_models.dart';
+import '../domain/reminder_id_policy.dart';
 
 class ReminderService {
   ReminderService(this._storage);
@@ -14,6 +15,9 @@ class ReminderService {
   final FlutterSecureStorage _storage;
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+  bool _schedulePending = false;
+  int _nextIdSeed = 1;
+  String? restoreWarning;
 
   Future<void> initialize() async {
     tz_data.initializeTimeZones();
@@ -27,6 +31,41 @@ class ReminderService {
         ),
       ),
     );
+    // Reconcile durable entries against the OS plugin's pending requests.
+    // A crash between secure-storage write and Android alarm registration
+    // must not leave a future reminder permanently dormant.
+    try {
+      await restorePending();
+      restoreWarning = null;
+    } catch (_) {
+      // A disabled OS notification channel or OEM alarm failure must never
+      // prevent Jiva's entire assistant UI from initializing.
+      restoreWarning =
+          'Some reminders could not be restored. Check notification permissions and battery settings.';
+    }
+  }
+
+  Future<void> restorePending() async {
+    if (_schedulePending) return;
+    _schedulePending = true;
+    try {
+      final scheduled = await _notifications.pendingNotificationRequests();
+      final activeIds = scheduled.map((item) => item.id).toSet();
+      var failures = 0;
+      for (final reminder in await list()) {
+        if (activeIds.contains(reminder.id)) continue;
+        try {
+          await _scheduleNotification(reminder);
+        } catch (_) {
+          failures++;
+        }
+      }
+      if (failures > 0) {
+        throw StateError('$failures pending reminder(s) could not be restored.');
+      }
+    } finally {
+      _schedulePending = false;
+    }
   }
 
   Future<List<ReminderItem>> list() async {
@@ -47,24 +86,18 @@ class ReminderService {
       ..sort((a, b) => a.triggerAt.compareTo(b.triggerAt));
   }
 
-  Future<ReminderItem> schedule(String text, DateTime triggerAt) async {
-    if (text.trim().isEmpty) {
-      throw ArgumentError('Reminder text cannot be empty.');
-    }
-    if (!triggerAt.isAfter(DateTime.now())) {
-      throw ArgumentError('Choose a time in the future.');
-    }
-    final id = DateTime.now().microsecondsSinceEpoch.remainder(0x7fffffff);
-    final reminder = ReminderItem(
-      id: id,
-      text: text.trim(),
-      triggerAt: triggerAt,
-    );
+  int _allocateId(Set<int> used) => ReminderIdPolicy.next(used, () {
+        _nextIdSeed = (_nextIdSeed + 1) & 0x7fffffff;
+        return (DateTime.now().microsecondsSinceEpoch + _nextIdSeed) &
+            0x7fffffff;
+      });
+
+  Future<void> _scheduleNotification(ReminderItem reminder) async {
     await _notifications.zonedSchedule(
-      id,
+      reminder.id,
       'Jiva reminder',
       reminder.text,
-      tz.TZDateTime.from(triggerAt, tz.local),
+      tz.TZDateTime.from(reminder.triggerAt, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'jiva_reminders',
@@ -79,23 +112,57 @@ class ReminderService {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
-    final reminders = await list();
-    reminders.removeWhere((item) => item.id == id);
-    reminders.add(reminder);
-    await _storage.write(
-      key: _itemsKey,
-      value: jsonEncode(
-        reminders
-            .map(
-              (item) => {
-                'id': item.id,
-                'text': item.text,
-                'triggerAt': item.triggerAt.toIso8601String(),
-              },
-            )
-            .toList(),
-      ),
-    );
-    return reminder;
+  }
+
+  String _encode(List<ReminderItem> reminders) => jsonEncode(
+        reminders.map((item) => {
+          'id': item.id,
+          'text': item.text,
+          'triggerAt': item.triggerAt.toIso8601String(),
+        }).toList(),
+      );
+
+  Future<ReminderItem> schedule(String text, DateTime triggerAt) async {
+    if (text.trim().isEmpty) {
+      throw ArgumentError('Reminder text cannot be empty.');
+    }
+    if (!triggerAt.isAfter(DateTime.now())) {
+      throw ArgumentError('Choose a time in the future.');
+    }
+    if (text.trim().length > 2000) {
+      throw ArgumentError('Reminder text is too long.');
+    }
+    if (_schedulePending) {
+      throw StateError('A reminder is already being saved. Try again.');
+    }
+    _schedulePending = true;
+    try {
+      final reminders = await list();
+      final used = reminders.map((item) => item.id).toSet();
+      final id = _allocateId(used);
+      final reminder = ReminderItem(
+        id: id,
+        text: text.trim(),
+        triggerAt: triggerAt,
+      );
+      final oldValue = await _storage.read(key: _itemsKey);
+      final updated = [...reminders, reminder];
+      // Durable first: do not schedule a notification that we cannot
+      // enumerate later. If OS rejects alarm scheduling, rollback the record.
+      await _storage.write(key: _itemsKey, value: _encode(updated));
+      try {
+        await _scheduleNotification(reminder);
+      } catch (_) {
+        if (oldValue == null) {
+          await _storage.delete(key: _itemsKey);
+        } else {
+          await _storage.write(key: _itemsKey, value: oldValue);
+        }
+        rethrow;
+      }
+      return reminder;
+    } finally {
+      _schedulePending = false;
+    }
   }
 }

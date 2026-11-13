@@ -1083,7 +1083,16 @@ class MainActivity : FragmentActivity(), TextToSpeech.OnInitListener {
         })
 
         LaunchedEffect(Unit) {
-            vm.setReminders(reminderScheduler.list())
+            // Recover a future reminder if the process died between durable
+            // storage and AlarmManager registration. Never block Compose UI.
+            val reminderRecovery = withContext(Dispatchers.IO) {
+                runCatching {
+                    reminderScheduler.restorePending()
+                    reminderScheduler.list()
+                }
+            }
+            reminderRecovery.onSuccess { vm.setReminders(it) }
+                .onFailure { vm.showReply("Couldn't restore pending reminders. Check device alarm settings.") }
             JivaAccessibilityService.results.collect { result ->
                 vm.setScreenAssistPending(false)
                 if (result.type == "read") screenText = result.text.joinToString("\n")
