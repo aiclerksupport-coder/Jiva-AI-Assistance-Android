@@ -31,7 +31,7 @@ fun ActionConfirmationDialog(
     onConfirm: (IntentPlan) -> Unit,
 ) {
     var message by remember(plan) { mutableStateOf(plan.message.orEmpty()) }
-    val needsContact = plan.action in setOf(AssistantAction.CALL, AssistantAction.SMS, AssistantAction.WHATSAPP_SHARE)
+    val needsContact = plan.action in setOf(AssistantAction.CALL, AssistantAction.SMS)
     val actionName = when (plan.action) {
         AssistantAction.CALL -> "Open the dialer for ${plan.contactName ?: plan.recipientQuery ?: "the selected contact"}"
         AssistantAction.SMS -> "Prepare an SMS for ${plan.contactName ?: plan.recipientQuery ?: "the selected contact"}"
