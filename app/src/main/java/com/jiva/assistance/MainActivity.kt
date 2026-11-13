@@ -249,6 +249,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         var showVoiceMenu by remember { mutableStateOf(false) }
         var appItems by remember { mutableStateOf(emptyList<Pair<String, Intent>>()) }
         val reminderScheduler = remember { ReminderScheduler(this) }
+        var reminderSavePending by remember { mutableStateOf(false) }
         var greetAfterPermission by remember { mutableStateOf(false) }
         var waitingForWakePause by remember { mutableStateOf(false) }
         var greetAfterWakePause by remember { mutableStateOf(false) }
@@ -958,10 +959,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }, confirmButton = { TextButton(onClick = { showApps = false }) { Text("Close") } })
 
         if (state.showReminderEditor) ReminderEditorDialog(context = this, onDismiss = vm::closeReminderEditor, onSave = { text, time ->
-            reminderScheduler.schedule(text, time).onSuccess {
-                vm.setReminders(reminderScheduler.list()); vm.closeReminderEditor(); vm.showReply("Reminder scheduled: $text")
-                if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }.onFailure { vm.showReply(it.message ?: "Couldn't schedule reminder.") }
+            if (!reminderSavePending) {
+                reminderSavePending = true
+                try {
+                    reminderScheduler.schedule(text, time).onSuccess {
+                        vm.setReminders(reminderScheduler.list()); vm.closeReminderEditor(); vm.showReply("Reminder scheduled: $text")
+                        if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }.onFailure { vm.showReply(it.message ?: "Couldn't schedule reminder.") }
+                } finally {
+                    reminderSavePending = false
+                }
+            }
         })
 
         LaunchedEffect(Unit) {
