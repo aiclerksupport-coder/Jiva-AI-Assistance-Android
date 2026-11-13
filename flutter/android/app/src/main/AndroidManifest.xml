@@ -27,7 +27,7 @@
         android:label="Jiva AI Assistance"
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_jiva_launcher"
         tools:targetApi="35">
         <activity
             android:name=".MainActivity"
