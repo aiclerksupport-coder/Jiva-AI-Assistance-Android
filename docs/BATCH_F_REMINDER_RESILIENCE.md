@@ -21,6 +21,7 @@ Existing code inspected: `app/src/main/java/com/jiva/assistance/ReminderSchedule
 - Native: synchronize receive/reminder list mutation to avoid a lost update during rapid save/delivery.
 - Native: on next app open, re-register pending future alarms from durable local records on `Dispatchers.IO`, covering a process death between persistence and OS alarm registration without freezing the Compose UI.
 - Flutter: serialize rapid schedule calls; select unused notification ID from live list; save list to FlutterSecureStorage before plugin scheduling and restore original list if scheduling throws.
+- Flutter: on startup, compare secure persisted future reminders with the plugin's pending OS notification IDs and re-register missing ones; recover as many as possible, report failures without blocking Jiva's other startup flows.
 - Pure Kotlin tests: collision ID, invalid IDs, malformed storage rows, special-character roundtrip and v1 backward compatibility.
 - Pure Dart tests: duplicate/invalid ID rejection and fallback; no Firebase dependencies.
 
@@ -46,7 +47,7 @@ catch (error: Exception) {
     throw error
 }
 ```
-**Residual:** OS alarm scheduling aur local preference storage ek single database transaction nahi ho sakte. Process death precisely between persistent write and alarm registration may leave a dormant record until next reboot/restore. Startup reconciliation is implemented in `MainActivity` on `Dispatchers.IO` for future records; real-device crash/restart tests still required.
+**Residual:** OS alarm scheduling aur local preference storage ek single database transaction nahi ho sakte. Process death precisely between persistent write and alarm registration may leave a dormant record until next reboot/restore. Startup reconciliation is implemented in native `MainActivity` on `Dispatchers.IO` and in Flutter `ReminderService.initialize()` using `pendingNotificationRequests()` for future records; real-device crash/restart tests still required.
 
 ### F-03: Native reminder text truncated at "|" (MEDIUM — FIXED)
 **Risk:** User reminder like "Call Raj | confirm order" stored as altered text; multline/emoji encoding unsafe when delimiter is direct.
@@ -99,6 +100,6 @@ Owner saves/removes own Gemini key only after real device fingerprint/PIN check.
 - Airplane mode/offline: local reminders still work if OS permits.
 - Android 8–16 device matrix, Samsung/Xiaomi/Oppo battery restriction behavior.
 - CI: Kotlin compile/tests/debug APK; Flutter analyze/tests/debug APK; gateway syntax check.
-- Original Git diff: reminder scheduler/domain/test/report and targeted MainActivity startup recovery only. No app IDs, Gemini model/keys, permissions, UI shell changed.
+- Original Git diff: reminder scheduler/domain/test/report and targeted Kotlin/Flutter main startup recovery only. No app IDs, Gemini model/keys, permissions, UI shell changed.
 
 **Important:** Green CI proves source builds/tests, not real notification delivery or exact-timing behavior.
