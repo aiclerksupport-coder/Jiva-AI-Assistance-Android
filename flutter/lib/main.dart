@@ -6,6 +6,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'domain/wake_event_policy.dart';
+import 'domain/app_launch_match.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
@@ -1635,25 +1636,19 @@ class _AssistantScreenState extends State<AssistantScreen>
       excludeNonLaunchableApps: true,
       detectPlatformType: false,
     );
-    final matching = apps.where(
-      (app) => app.name.toLowerCase() == query.toLowerCase(),
+    final index = AppLaunchMatch.select(
+      query,
+      apps.map((app) => app.name).toList(growable: false),
     );
-    final exact = matching.isEmpty ? null : matching.first;
-    var packageName = exact?.packageName;
-    var appName = exact?.name;
-    for (final candidate in apps) {
-      if (packageName == null &&
-          candidate.name.toLowerCase().contains(query.toLowerCase())) {
-        packageName = candidate.packageName;
-        appName = candidate.name;
-        break;
-      }
+    if (index == null) {
+      throw StateError(
+        'No unique installed app matches "$query". Use the exact app name '
+        'to avoid opening the wrong application.',
+      );
     }
-    if (packageName == null) {
-      throw Exception('No matching installed app was found.');
-    }
-    if (await InstalledApps.startApp(packageName) != true) {
-      throw Exception('Could not open $appName.');
+    final matched = apps[index];
+    if (await InstalledApps.startApp(matched.packageName) != true) {
+      throw StateError('Android could not open ${matched.name}.');
     }
   }
 
