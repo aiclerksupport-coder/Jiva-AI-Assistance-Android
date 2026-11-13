@@ -54,6 +54,9 @@ class WakeWordService : Service() {
                 return START_STICKY
             }
             ACTION_PAUSE -> {
+                // Block callbacks immediately, even while stop() is awaiting
+                // the Picovoice microphone mutex.
+                wakeHandoff.disarm()
                 serviceScope.launch {
                     try {
                         stopWakeWordManager()
