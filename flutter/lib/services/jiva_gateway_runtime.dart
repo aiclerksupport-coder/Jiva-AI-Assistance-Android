@@ -10,10 +10,10 @@ import 'jiva_gateway_client.dart';
 class JivaGatewayRuntime {
   JivaGatewayRuntime._();
 
-  static const requireGateway = bool.fromEnvironment(
-    'JIVA_REQUIRE_GATEWAY',
-    defaultValue: bool.fromEnvironment('dart.vm.product'),
-  );
+  // A release must NEVER be able to opt back into client-side BYOK.
+  static const requireGateway =
+      bool.fromEnvironment('dart.vm.product') ||
+      bool.fromEnvironment('JIVA_REQUIRE_GATEWAY');
   static const endpoint = String.fromEnvironment('JIVA_GATEWAY_URL');
   static const projectId = String.fromEnvironment('JIVA_FIREBASE_PROJECT_ID');
   static const appId = String.fromEnvironment('JIVA_FIREBASE_APP_ID');
