@@ -1676,7 +1676,7 @@ class _AssistantScreenState extends State<AssistantScreen>
       selectedName = candidates
           .firstWhere((app) => app.packageName == selectedPackage).name;
     }
-    if (!mounted || !_enabled) return;
+    if (!mounted || !_enabled || selectedPackage == null) return;
     if (await InstalledApps.startApp(selectedPackage) != true) {
       throw StateError('Android could not open $selectedName.');
     }
