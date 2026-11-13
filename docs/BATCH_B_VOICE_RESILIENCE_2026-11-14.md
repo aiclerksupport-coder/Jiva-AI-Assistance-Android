@@ -14,6 +14,8 @@
 | Kotlin recognition | 60-second watchdog, cancel on completion/error/Stop/destroy, release recognizer | Avoid hanging mic and associated resources indefinitely |
 | Flutter wake | Synchronous busy claim before await, generation-based Stop/disable cancellation, pure `WakeEventPolicy` | Stale greeting does not reopen microphone after Stop; duplicate wake rejection |
 | Flutter mic pause/resume | Update `_wakeManagerStarted` only after `stop()` success; suppress resume while pause/pending event | Avoid simultaneous wake microphone and speech-recognition microphone |
+| Flutter stop during greeting | Track greeting owner and clear its busy state on Stop/disable | Prevent stale async TTS from reopening microphone or leaving UI permanently busy |
+| Flutter fallback TTS | Await real utterance completion and bound it to 12 seconds; stop on timeout | Prevent Jiva's own greeting from being re-transcribed as a user command |
 | Flutter enhanced recognition | Android plugin 60-second watchdog; cleanup recognizer after final/error | Prevent endless enhanced capture; release native resource |
 | Flutter speech callback order | Send final result before idle status | Submission claims busy state before the wake listener considers re-arming |
 | Android 14+ language hint | `RecognizerIntent.EXTRA_ENABLE_LANGUAGE_DETECTION` in native and Flutter enhanced path | Optional multilingual detection; depends on installed recognition provider |
@@ -47,7 +49,7 @@ if (!wakeHandoff.claim()) return
 
 ### B-02: Stop button while voice greeting pending — fixed in Flutter
 **Risk:** User taps Stop but an awaited greeting completes and opens mic again.
-**Fix:** Each accepted wake increments `_wakeGeneration`; Stop/disable invalidates it; check generation after each async await.
+**Fix:** Each accepted wake increments `_wakeGeneration`; Stop/disable invalidates it; check generation after each async await. Stop also clears the greeting-owned busy flag so the UI does not stay frozen after cancellation.
 ```dart
 final epoch = ++_wakeGeneration;
 await _pauseWakeWordManager();
@@ -60,6 +62,14 @@ await _listen();
 ### B-03: Wake microphone pause flag changed before stop succeeded — fixed in Flutter
 **Risk:** Failed microphone stop appears as stopped, allowing double microphone capture.
 **Fix:** Only set `_wakeManagerStarted=false` in successful `stop().then(...)`; keep pending pause future until completion, block resume until settled.
+
+### B-03a: TTS greeting overlaps microphone — fixed in Flutter
+**Risk:** `flutter_tts.speak()` can return immediately unless completion mode is enabled; Jiva can then record its own `Ji, boliye` greeting as a user command.
+**Fix:** `await _tts.awaitSpeakCompletion(true)`, bounded `speak().timeout(...)`, and `_tts.stop()` on error. Recheck wake generation before starting speech input.
+```dart
+await _tts.awaitSpeakCompletion(true);
+await _tts.speak('Ji, boliye').timeout(const Duration(seconds: 12));
+```
 
 ### B-04: Recognizer hang / native resource leak — fixed in source
 **Risk:** Some OEM SpeechRecognizer implementations never return final/error callback; AudioRecord/pipe/recognizer may remain alive.
