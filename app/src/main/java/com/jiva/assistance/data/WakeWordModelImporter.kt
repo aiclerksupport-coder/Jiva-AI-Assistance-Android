@@ -3,6 +3,7 @@ package com.jiva.assistance.data
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.AtomicFile
 import java.io.File
 import java.io.IOException
 
@@ -23,32 +24,35 @@ object WakeWordModelImporter {
         require(displayName.endsWith(".ppn", ignoreCase = true)) {
             "Choose a Picovoice .ppn wake-word model."
         }
-        val directory = File(context.filesDir, "wakewords").apply { mkdirs() }
-        val target = File(directory, "$name.ppn")
-        val temporary = File(directory, "$name.ppn.tmp")
-        try {
-            val input = context.contentResolver.openInputStream(uri)
-                ?: throw IOException("Could not read the selected wake-word model.")
-            input.use { source ->
-                temporary.outputStream().use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var total = 0L
-                    while (true) {
-                        val read = source.read(buffer)
-                        if (read < 0) break
-                        total += read
-                        require(total <= MAX_MODEL_BYTES) { "Wake-word model is too large (10 MB limit)." }
-                        output.write(buffer, 0, read)
-                    }
-                    require(total > 0) { "The selected wake-word model is empty." }
-                }
-            }
-            if (target.exists() && !target.delete()) throw IOException("Could not replace the previous wake-word model.")
-            if (!temporary.renameTo(target)) throw IOException("Could not save the selected wake-word model.")
-            return target.absolutePath
-        } catch (error: Exception) {
-            temporary.delete()
-            throw error
+
+        // AtomicFile preserves the last complete model if the incoming file is
+        // truncated, too large, or the device loses power during replacement.
+        val directory = File(context.filesDir, "wakewords").apply {
+            check(exists() || mkdirs()) { "Could not create wake-word model directory." }
         }
+        val target = File(directory, "$name.ppn")
+        val atomic = AtomicFile(target)
+        context.contentResolver.openInputStream(uri)?.use { source ->
+            var output: java.io.FileOutputStream? = null
+            try {
+                output = atomic.startWrite()
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var total = 0L
+                while (true) {
+                    val read = source.read(buffer)
+                    if (read < 0) break
+                    total += read
+                    require(total <= MAX_MODEL_BYTES) { "Wake-word model is too large (10 MB limit)." }
+                    output.write(buffer, 0, read)
+                }
+                require(total > 0) { "The selected wake-word model is empty." }
+                atomic.finishWrite(output)
+                output = null
+            } catch (error: Exception) {
+                if (output != null) atomic.failWrite(output)
+                throw error
+            }
+        } ?: throw IOException("Could not read the selected wake-word model.")
+        return target.absolutePath
     }
 }
