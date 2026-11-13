@@ -49,7 +49,7 @@ class LocalCommandParser {
                 IntentPlan(AssistantAction.CAMERA, "Open the camera app?")
 
             else -> extractAppName(raw)?.let { app ->
-                IntentPlan(AssistantAction.OPEN_APP, "I'll look for that installed app.", appName = app)
+                IntentPlan(AssistantAction.OPEN_APP, "I'll look for that installed app.", appName = canonicalAppName(app))
             }
         }
     }
@@ -60,7 +60,7 @@ class LocalCommandParser {
         if (trimmed.isEmpty()) return null
 
         val prefix = Regex(
-            "^(?i)(?:please\\s+|जरा\\s+|कृपया\\s+)?(?:open|launch|start|run|खोलो|खोलिए|खोलें|खोल|चलाओ|चला\\s*दो|चालू\\s*करो|शुरू\\s*करो|उघडा|उघड|चालवा|ખોલો|ચાલુ\\s*કરો|ચાલાવો|খোলো|খুলুন|চালাও|চালু\\s*করো|খোলক|চলাও|திற|திறக்கவும்|இயக்கு|தెరువు|తెరవండి|నడుపు|ತೆರೆ|ತೆರೆಯಿರಿ|ಚಲಾಯಿಸು|തുറക്കൂ|തുറക്കുക|പ്രവർത്തിപ്പിക്കുക|ਖੋਲ੍ਹੋ|ਚਲਾਓ|کھولو|چلاؤ|کھولیں|چلائیں|ଖୋଲ|ଖୋଲନ୍ତୁ|ଚଲାଅ|खोलो|चलाओ|चलाइए|चलाइये|చલાવો|چلاؤ)\\s+(?:the\\s+|app\\s+)?",
+            "^(?i)(?:please\\s+|जरा\\s+|कृपया\\s+)?(?:open|launch|start|run|खोलो|खोलिए|खोलें|खोल|चलाओ|चला\\s*दो|चालू\\s*करो|शुरू\\s*करो|उघडा|उघड|चालवा|ખોલો|ચાલુ\\s*કરો|ચાલાવો|খোলো|খুলুন|চালাও|চালু\\s*করো|খোলক|চলাও|திற|திறக்கவும்|இயக்கு|తెరువు|తెరవండి|నడుపు|ತೆರೆ|ತೆರೆಯಿರಿ|ಚಲಾಯಿಸು|തുറക്കൂ|തുറക്കുക|പ്രവർത്തിപ്പിക്കുക|ਖੋਲ੍ਹੋ|ਚਲਾਓ|کھولو|چلاؤ|کھولیں|چلائیں|ଖୋଲ|ଖୋଲନ୍ତୁ|ଚଲାଅ|खोलो|चलाओ|चलाइए|चलाइये|चलवा|చలావో|چلاؤ)\\s+(?:the\\s+|app\\s+)?",
         )
         val suffix = Regex(
             "(?i)\\s+(?:app\\s+)?(?:please\\s+)?(?:open|launch|start|run|खोलो|खोलिए|खोलें|खोल|चलाओ|चला\\s*दो|चालू\\s*करो|शुरू\\s*करो|उघडा|उघड|चालवा|ખોલો|ચાલુ\\s*કરો|ચાલાવો|খোলো|খুলুন|চালাও|চালু\\s*করো|খোলক|চলাও|திற|திறக்கவும்|இயக்கு|తెరువు|తెరవండి|నడుపు|ತೆರೆ|ತೆರೆಯಿರಿ|ಚಲಾಯಿಸು|തുറക്കൂ|തുറക്കുക|പ്രവർത്തിപ്പിക്കുക|ਖੋਲ੍ਹੋ|ਚਲਾਓ|کھولو|چلاؤ|کھولیں|چلائیں|ଖୋଲ|ଖୋଲନ୍ତୁ|ଚଲାଅ|खोलो|चलाओ|चलाइए|चलाइये|चलवा|చలావో|چلاؤ)(?:\\s+(?:please|कृपया))?$",
@@ -73,6 +73,12 @@ class LocalCommandParser {
         }.replace(Regex("(?i)\\s+(?:app|application)$"), "").trim().trim('"', '\'')
 
         return app.takeIf { it.isNotBlank() && it.length <= 100 }
+    }
+
+    /** Convert common Indian-script names to the English launcher labels used by many installed apps. */
+    private fun canonicalAppName(name: String): String {
+        val key = name.trim().lowercase(Locale.ROOT).replace(Regex("[\\s._-]+"), "")
+        return APP_ALIASES[key] ?: name.trim()
     }
 
     private fun extractRecipient(raw: String): String? {
@@ -100,4 +106,26 @@ class LocalCommandParser {
     }
 
     private fun containsAny(text: String, vararg phrases: String) = phrases.any { text.contains(it) }
+
+    private companion object {
+        val APP_ALIASES = mapOf(
+            "whatsapp" to "WhatsApp", "व्हाट्सएप" to "WhatsApp", "व्हाट्सऐप" to "WhatsApp", "واتساب" to "WhatsApp",
+            "વોટ્સએપ" to "WhatsApp", "વોટ્સેપ" to "WhatsApp", "வாட்ஸ்அப்" to "WhatsApp", "వాట్సాప్" to "WhatsApp",
+            "হোয়াটসঅ্যাপ" to "WhatsApp", "হোয়াটসঅ্যাপ" to "WhatsApp", "ਵਟਸਐਪ" to "WhatsApp", "واٹسایپ" to "WhatsApp", "واٹس ایپ" to "WhatsApp",
+            "youtube" to "YouTube", "यूट्यूब" to "YouTube", "یوٹیوب" to "YouTube", "યુટ્યુબ" to "YouTube", "யூடியூப்" to "YouTube",
+            "యూట్యూబ్" to "YouTube", "ইউটিউব" to "YouTube", "ਯੂਟਿਊਬ" to "YouTube", "ୟୁଟ୍ୟୁବ" to "YouTube",
+            "instagram" to "Instagram", "इंस्टाग्राम" to "Instagram", "ઇન્સ્ટાગ્રામ" to "Instagram", "இன்ஸ்டாகிராம்" to "Instagram",
+            "ఇన్‌స్టాగ్రామ్" to "Instagram", "ইনস্টাগ্রাম" to "Instagram", "ਇੰਸਟਾਗ੍ਰਾਮ" to "Instagram", "انسٹاگرام" to "Instagram",
+            "facebook" to "Facebook", "फेसबुक" to "Facebook", "ફેસબુક" to "Facebook", "ஃபேஸ்புக்" to "Facebook",
+            "ఫేస్బుక్" to "Facebook", "ফেসবুক" to "Facebook", "ਫੇਸਬੁੱਕ" to "Facebook", "فیس بک" to "Facebook",
+            "telegram" to "Telegram", "टेलीग्राम" to "Telegram", "ટેલિગ્રામ" to "Telegram", "டெலிகிராம்" to "Telegram",
+            "టెలిగ్రామ్" to "Telegram", "টেলিগ্রাম" to "Telegram", "ਟੈਲੀਗ੍ਰਾਮ" to "Telegram", "ٹیلیگرام" to "Telegram",
+            "chrome" to "Chrome", "क्रोम" to "Chrome", "ક્રોમ" to "Chrome", "குரோம்" to "Chrome", "క్రోమ్" to "Chrome",
+            "ক্রোম" to "Chrome", "ਕ੍ਰੋਮ" to "Chrome", "کروم" to "Chrome",
+            "gmail" to "Gmail", "जीमेल" to "Gmail", "જીમેલ" to "Gmail", "ஜிமெயில்" to "Gmail", "జీమెయిల్" to "Gmail",
+            "জিমেইল" to "Gmail", "ਜੀਮੇਲ" to "Gmail", "جی میل" to "Gmail",
+            "google maps" to "Maps", "maps" to "Maps", "गूगल मैप्स" to "Maps", "मैप्स" to "Maps", "મેપ્સ" to "Maps",
+            "மேப்ஸ்" to "Maps", "మ్యాప్స్" to "Maps", "ম্যাপস" to "Maps", "ਮੈਪਸ" to "Maps", "گوگل میپس" to "Maps",
+        )
+    }
 }
