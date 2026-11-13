@@ -6,6 +6,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getAppCheck } from 'firebase-admin/app-check';
 import { getFirestore } from 'firebase-admin/firestore';
 import { GoogleGenAI } from '@google/genai';
+import { MAX_REQUEST_BYTES, validateRequest, sanitizePlan, requiredAuthHeaders, validateAppId, safeStatus } from './gateway_core.mjs';
 
 initializeApp({ credential: applicationDefault() });
 const key = process.env.GEMINI_API_KEY;
@@ -15,10 +16,8 @@ if (!key || !process.env.GOOGLE_CLOUD_PROJECT) {
 const ai = new GoogleGenAI({ apiKey: key });
 const db = getFirestore();
 const model = process.env.GEMINI_TEXT_MODEL || 'gemini-3.8-flash';
-const allowed = new Set(['CHAT','OPEN_APP','CALL','SMS','WHATSAPP_SHARE','REMINDER','OPEN_SETTINGS','CAMERA','PHONE_NAVIGATION']);
 const system = 'You are Jiva, a multilingual phone assistant. Return JSON keys reply, action, appName, recipientQuery, message, settingsTarget, phoneAction. action must be CHAT, OPEN_APP, CALL, SMS, WHATSAPP_SHARE, REMINDER, OPEN_SETTINGS, CAMERA, or PHONE_NAVIGATION. Never claim an action completed. Do not execute actions. The app independently confirms and validates all actions.';
 const LIMIT_PER_MINUTE = 20;
-const MAX_REQUEST_BYTES = 8192;
 
 function send(res, status, data) {
   res.writeHead(status, {'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});
@@ -26,14 +25,13 @@ function send(res, status, data) {
 }
 
 async function authenticate(req) {
-  const auth = /^Bearer ([A-Za-z0-9._-]+)$/.exec(req.headers.authorization || '');
-  const appCheckToken = req.headers['x-firebase-appcheck'];
-  if (!auth || typeof appCheckToken !== 'string' || !appCheckToken) throw Object.assign(new Error('Authentication required'), {status:401});
+  const { idToken, appCheck: appCheckToken } = requiredAuthHeaders(req.headers);
   const [user, app] = await Promise.all([
-    getAuth().verifyIdToken(auth[1], true),
+    getAuth().verifyIdToken(idToken, true),
     getAppCheck().verifyToken(appCheckToken)
   ]);
   if (!user.uid || !app.appId) throw Object.assign(new Error('Authentication required'), {status:401});
+  validateAppId(app.appId, process.env.JIVA_ALLOWED_APP_IDS);
   return user.uid;
 }
 
@@ -65,15 +63,17 @@ const server = http.createServer(async(req,res)=>{
     send(res,404,{error:'Not found'});return;
   }
   try {
+    if (req.headers['content-type']?.split(';')[0]?.trim().toLowerCase() !== 'application/json') {
+      throw Object.assign(new Error('application/json is required'), {status:415});
+    }
     const uid = await authenticate(req);
     await reserveQuota(uid);
     if(req.url === '/v1/interpret') {
       const data = await readJson(req);
-      if(typeof data.text !== 'string' || !data.text.trim() || data.text.length>2000)
-        throw Object.assign(new Error('Text must be 1–2000 characters'),{status:400});
+      const text = validateRequest(data);
       const result = await ai.models.generateContent({
         model,
-        contents: data.text,
+        contents: text,
         config: { systemInstruction:system, responseMimeType:'application/json' }
       });
       let parsed;
@@ -81,16 +81,7 @@ const server = http.createServer(async(req,res)=>{
       catch { throw Object.assign(new Error('Invalid AI response'),{status:502}); }
       if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
         throw Object.assign(new Error('Invalid AI response'),{status:502});
-      const action=allowed.has(parsed.action)?parsed.action:'CHAT';
-      send(res,200,{
-        reply:typeof parsed.reply==='string'?parsed.reply.slice(0,2000):'Please clarify your request.',
-        action,
-        appName:typeof parsed.appName==='string'?parsed.appName.slice(0,100):'',
-        recipientQuery:typeof parsed.recipientQuery==='string'?parsed.recipientQuery.slice(0,100):'',
-        message:typeof parsed.message==='string'?parsed.message.slice(0,2000):'',
-        settingsTarget:['general','wifi','bluetooth','display','sound'].includes(parsed.settingsTarget)?parsed.settingsTarget:'general',
-        phoneAction:['home','back','recents','notifications','quick_settings'].includes(parsed.phoneAction)?parsed.phoneAction:''
-      });
+      send(res,200,sanitizePlan(parsed));
       return;
     }
     // Live credentials are short-lived and can start only one session.
@@ -99,14 +90,14 @@ const server = http.createServer(async(req,res)=>{
       uses:1,
       expireTime:expiry,
       newSessionExpireTime:new Date(Date.now()+60*1000).toISOString(),
-      httpOptions:{apiVersion:'v1alpha'}
+      liveConnectConstraints:{ model: process.env.GEMINI_LIVE_MODEL || 'models/gemini-3.8-live' },
+      httpOptions:{apiVersion:'v1beta'}
     }});
     if(!entry.name) throw Object.assign(new Error('Token service unavailable'),{status:502});
     send(res,200,{token:entry.name,expiresAt:expiry});
   } catch(e) {
     // Do not echo upstream errors, requests, tokens or keys to untrusted clients.
-    const status=Number(e.status);
-    const safe=[400,401,413,429].includes(status)?status:502;
+    const safe=safeStatus(e);
     send(res,safe,{error:safe===502?'Gemini gateway is temporarily unavailable':e.message});
   }
 });
