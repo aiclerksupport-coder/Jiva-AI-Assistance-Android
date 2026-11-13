@@ -52,15 +52,13 @@ class LocalCommandParser {
     }
 
     if (_contains(text, const [
-      'call',
-      'phone',
       'कॉल',
       'फोन',
       'llama',
       'llamar',
       'anrufen',
       '打电话',
-    ])) {
+    ]) || _containsWholeEnglishVerb(text, const ['call', 'phone'])) {
       return IntentPlan(
         action: AssistantAction.call,
         reply: 'Enter a phone number. Jiva will open the dialer for your review.',
@@ -149,6 +147,13 @@ class LocalCommandParser {
     }
     return null;
   }
+
+  // Prevent "My Local Bank App" from being mistaken for "call".
+  static bool _containsWholeEnglishVerb(String text, List<String> verbs) =>
+      verbs.any((verb) => RegExp(
+            r'(?<![\p{L}\p{N}])' + RegExp.escape(verb) + r'(?![\p{L}\p{N}])',
+            unicode: true,
+          ).hasMatch(text));
 
   static bool _contains(String text, List<String> phrases) =>
       phrases.any(text.contains);
