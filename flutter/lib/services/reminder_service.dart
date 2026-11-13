@@ -6,6 +6,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/assistant_models.dart';
+import '../domain/reminder_id_policy.dart';
 
 class ReminderService {
   ReminderService(this._storage);
@@ -49,16 +50,11 @@ class ReminderService {
       ..sort((a, b) => a.triggerAt.compareTo(b.triggerAt));
   }
 
-  int _allocateId(Set<int> used) {
-    // No hash-based identity collisions; avoid the IDs already persisted.
-    for (var attempts = 0; attempts < 10000; attempts++) {
-      _nextIdSeed = (_nextIdSeed + 1) & 0x7fffffff;
-      final id = (DateTime.now().microsecondsSinceEpoch + _nextIdSeed) &
-          0x7fffffff;
-      if (id > 0 && !used.contains(id)) return id;
-    }
-    throw StateError('Could not allocate a unique reminder ID.');
-  }
+  int _allocateId(Set<int> used) => ReminderIdPolicy.next(used, () {
+        _nextIdSeed = (_nextIdSeed + 1) & 0x7fffffff;
+        return (DateTime.now().microsecondsSinceEpoch + _nextIdSeed) &
+            0x7fffffff;
+      });
 
   String _encode(List<ReminderItem> reminders) => jsonEncode(
         reminders.map((item) => {
