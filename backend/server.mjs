@@ -31,6 +31,9 @@ async function authenticate(req) {
     getAppCheck().verifyToken(appCheckToken)
   ]);
   if (!user.uid || !app.appId) throw Object.assign(new Error('Authentication required'), {status:401});
+  if (user.firebase?.sign_in_provider === 'anonymous' || user.email_verified !== true) {
+    throw Object.assign(new Error('Verified user account required'), {status:403});
+  }
   validateAppId(app.appId, process.env.JIVA_ALLOWED_APP_IDS);
   return user.uid;
 }
