@@ -12,6 +12,26 @@ class VisibleTargetMatcherTest {
         assertEquals(VisibleTargetMatcher.Resolution.NotFound, VisibleTargetMatcher.resolve("Like this", candidates))
     }
 
+    @Test fun supportsExactLocalLanguageLabelEquivalents() {
+        val cases = listOf(
+            "Like" to "पसंद",
+            "Send" to "அனுப்பு",
+            "Pay" to "ચૂકવો",
+            "Delete" to "மீக்கு",
+            "Comment" to "মন্তব্য",
+            "Share" to "పంచుకోండి",
+        )
+        cases.forEachIndexed { index, (requested, visibleLabel) ->
+            val candidates = listOf(VisibleTargetMatcher.Candidate(setOf(visibleLabel), "target-$index"))
+            assertEquals(requested, VisibleTargetMatcher.Resolution.Unique("target-$index"), VisibleTargetMatcher.resolve(requested, candidates))
+        }
+    }
+
+    @Test fun localizedAliasStillRequiresExactWholeLabel() {
+        val candidates = listOf(VisibleTargetMatcher.Candidate(setOf("पसंद करें"), "like-button"))
+        assertEquals(VisibleTargetMatcher.Resolution.NotFound, VisibleTargetMatcher.resolve("Like", candidates))
+    }
+
     @Test fun deduplicatesLabelNodesBelongingToSameClickableControl() {
         val candidates = listOf(
             VisibleTargetMatcher.Candidate(setOf("Send"), "send-button"),
@@ -20,10 +40,10 @@ class VisibleTargetMatcherTest {
         assertEquals(VisibleTargetMatcher.Resolution.Unique("send-button"), VisibleTargetMatcher.resolve("Send", candidates))
     }
 
-    @Test fun rejectsMultipleDistinctVisibleTargets() {
+    @Test fun rejectsMultipleDistinctVisibleTargetsIncludingLocalizedAliases() {
         val candidates = listOf(
             VisibleTargetMatcher.Candidate(setOf("Like"), "like-1"),
-            VisibleTargetMatcher.Candidate(setOf("Like"), "like-2"),
+            VisibleTargetMatcher.Candidate(setOf("पसंद"), "like-2"),
         )
         assertEquals(VisibleTargetMatcher.Resolution.Ambiguous, VisibleTargetMatcher.resolve("Like", candidates))
     }
@@ -37,15 +57,27 @@ class VisibleTargetMatcherTest {
         assertEquals(VisibleTargetMatcher.Resolution.NotFound, VisibleTargetMatcher.resolve("Continue", candidates))
     }
 
-    @Test fun flagsCredentialAndPaymentScreenTextBestEffort() {
-        assertTrue(VisibleTargetMatcher.looksLikePrivateOrCredentialScreen("Enter your password to sign in"))
-        assertTrue(VisibleTargetMatcher.looksLikePrivateOrCredentialScreen("यूपीआई पिन दर्ज करें"))
+    @Test fun flagsPrivateScreensAcrossIndicLanguagesAndCredentialVariants() {
+        listOf(
+            "Enter your password to sign in",
+            "Enter OTP to continue",
+            "यूपीआई पिन दर्ज करें",
+            "வங்கி கணக்கு",
+            "ਕਾਰਡ ਨੰਬਰ",
+            "بینک اکاؤنٹ",
+        ).forEach { text -> assertTrue("Should block: $text", VisibleTargetMatcher.looksLikePrivateOrCredentialScreen(text)) }
         assertFalse(VisibleTargetMatcher.looksLikePrivateOrCredentialScreen("Instagram reel: Like, Comment, Share"))
+        assertFalse(VisibleTargetMatcher.looksLikePrivateOrCredentialScreen("The sender liked this post"))
     }
 
-    @Test fun classifiesHighImpactButtonsForExtraReview() {
-        assertTrue(VisibleTargetMatcher.isHighImpactLabel("Send now"))
+    @Test fun classifiesHighImpactActionsPreciselyAcrossLanguages() {
+        assertEquals(VisibleTargetMatcher.ReviewRisk.COMMUNICATION, VisibleTargetMatcher.reviewRisk("Send"))
+        assertEquals(VisibleTargetMatcher.ReviewRisk.FINANCIAL, VisibleTargetMatcher.reviewRisk("ચૂકવો"))
+        assertEquals(VisibleTargetMatcher.ReviewRisk.DESTRUCTIVE, VisibleTargetMatcher.reviewRisk("Delete"))
+        assertEquals(VisibleTargetMatcher.ReviewRisk.SOCIAL_POST, VisibleTargetMatcher.reviewRisk("Comment"))
+        assertEquals(VisibleTargetMatcher.ReviewRisk.SOCIAL_POST, VisibleTargetMatcher.reviewRisk("Share"))
+        assertEquals(VisibleTargetMatcher.ReviewRisk.SOCIAL_POST, VisibleTargetMatcher.reviewRisk("Like"))
         assertTrue(VisibleTargetMatcher.isHighImpactLabel("भुगतान करें"))
-        assertFalse(VisibleTargetMatcher.isHighImpactLabel("Like"))
+        assertFalse(VisibleTargetMatcher.isHighImpactLabel("Continue"))
     }
 }
