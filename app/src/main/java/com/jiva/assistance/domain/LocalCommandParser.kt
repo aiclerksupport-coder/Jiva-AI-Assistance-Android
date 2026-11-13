@@ -21,7 +21,12 @@ class LocalCommandParser {
                 IntentPlan(AssistantAction.REMINDER, "Let's set a reminder. / Reminder ka time set karein.")
 
             containsAny(text, "whatsapp", "व्हाट्सएप", "واتساب") && containsAny(text, "message", "send", "मैसेज", "भेज", "mensaje", "enviar", "发", "送") ->
-                IntentPlan(AssistantAction.WHATSAPP_SHARE, "Choose the contact and review the message in WhatsApp before sending.", recipientQuery = extractRecipient(raw), message = extractMessage(raw))
+                IntentPlan(
+                    AssistantAction.WHATSAPP_SHARE,
+                    "Choose the contact and review the message in WhatsApp before sending.",
+                    recipientQuery = extractRecipient(raw),
+                    message = extractMessage(raw),
+                )
 
             containsAny(text, "call", "phone", "कॉल", "फोन", "कॉल करो", "llama", "llamar", "anrufen", "打电话") ->
                 IntentPlan(AssistantAction.CALL, "Choose a contact. Jiva will open the dialer for your review.", recipientQuery = extractRecipient(raw))
@@ -43,12 +48,31 @@ class LocalCommandParser {
             containsAny(text, "camera", "कैमरा", "cámara", "相机") ->
                 IntentPlan(AssistantAction.CAMERA, "Open the camera app?")
 
-            startsWithAny(text, "open ", "launch ", "start ", "खोलो ", "खोल ", "abre ", "abrir ", "開く ", "打开 ") -> {
-                val app = raw.trim().replace(Regex("(?i)^(open|launch|start|खोलो|खोल|abre|abrir|開く|打开)\\s+"), "").trim()
-                if (app.isBlank()) null else IntentPlan(AssistantAction.OPEN_APP, "I'll look for that installed app.", appName = app)
+            else -> extractAppName(raw)?.let { app ->
+                IntentPlan(AssistantAction.OPEN_APP, "I'll look for that installed app.", appName = app)
             }
-            else -> null
         }
+    }
+
+    /** Recognize explicit app-launch phrasing; the selected installed app still goes through confirmation. */
+    private fun extractAppName(raw: String): String? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+
+        val prefix = Regex(
+            "^(?i)(?:please\\s+|जरा\\s+|कृपया\\s+)?(?:open|launch|start|run|खोलो|खोलिए|खोलें|खोल|चलाओ|चला\\s*दो|चालू\\s*करो|शुरू\\s*करो|उघडा|उघड|चालवा|ખોલો|ચાલુ\\s*કરો|ચાલાવો|খোলো|খুলুন|চালাও|চালু\\s*করো|খোলক|চলাও|திற|திறக்கவும்|இயக்கு|தెరువు|తెరవండి|నడుపు|ತೆರೆ|ತೆರೆಯಿರಿ|ಚಲಾಯಿಸು|തുറക്കൂ|തുറക്കുക|പ്രവർത്തിപ്പിക്കുക|ਖੋਲ੍ਹੋ|ਚਲਾਓ|کھولو|چلاؤ|کھولیں|چلائیں|ଖୋଲ|ଖୋଲନ୍ତୁ|ଚଲାଅ|खोलो|चलाओ|चलाइए|चलाइये|చલાવો|چلاؤ)\\s+(?:the\\s+|app\\s+)?",
+        )
+        val suffix = Regex(
+            "(?i)\\s+(?:app\\s+)?(?:please\\s+)?(?:open|launch|start|run|खोलो|खोलिए|खोलें|खोल|चलाओ|चला\\s*दो|चालू\\s*करो|शुरू\\s*करो|उघडा|उघड|चालवा|ખોલો|ચાલુ\\s*કરો|ચાલાવો|খোলো|খুলুন|চালাও|চালু\\s*করো|খোলক|চলাও|திற|திறக்கவும்|இயக்கு|తెరువు|తెరవండి|నడుపు|ತೆರೆ|ತೆರೆಯಿರಿ|ಚಲಾಯಿಸು|തുറക്കൂ|തുറക്കുക|പ്രവർത്തിപ്പിക്കുക|ਖੋਲ੍ਹੋ|ਚਲਾਓ|کھولو|چلاؤ|کھولیں|چلائیں|ଖୋଲ|ଖୋଲନ୍ତୁ|ଚଲାଅ|खोलो|चलाओ|चलाइए|चलाइये|चलवा|చలావో|چلاؤ)(?:\\s+(?:please|कृपया))?$",
+        )
+
+        val app = when {
+            prefix.containsMatchIn(trimmed) -> trimmed.replaceFirst(prefix, "").trim()
+            suffix.containsMatchIn(trimmed) -> trimmed.replace(suffix, "").trim()
+            else -> return null
+        }.replace(Regex("(?i)\\s+(?:app|application)$"), "").trim().trim('"', '\'')
+
+        return app.takeIf { it.isNotBlank() && it.length <= 100 }
     }
 
     private fun extractRecipient(raw: String): String? {
@@ -76,5 +100,4 @@ class LocalCommandParser {
     }
 
     private fun containsAny(text: String, vararg phrases: String) = phrases.any { text.contains(it) }
-    private fun startsWithAny(text: String, vararg phrases: String) = phrases.any { text.startsWith(it) }
 }

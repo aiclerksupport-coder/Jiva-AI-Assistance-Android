@@ -32,6 +32,27 @@ class LocalCommandParserTest {
         assertTrue(ActionPolicy.canDispatch(plan!!))
     }
 
+    @Test fun parsesAppLaunchInIndianLanguagesAndHinglish() {
+        val commands = mapOf(
+            "WhatsApp kholo" to "WhatsApp",
+            "Instagram app chalao" to "Instagram",
+            "यूट्यूब खोलो" to "यूट्यूब",
+            "टेलीग्राम चालू करो" to "टेलीग्राम",
+            "વોટ્સએપ ખોલો" to "વોટ્સએપ",
+            "வாட்ஸ்அப் திற" to "வாட்ஸ்அப்",
+            "యూట్యూబ్ తెరువు" to "యూట్యూబ్",
+            "ফেসবুক খোলো" to "ফেসবুক",
+            "ਇੰਸਟਾਗ੍ਰਾਮ ਖੋਲ੍ਹੋ" to "ਇੰਸਟਾਗ੍ਰਾਮ",
+            "یوٹیوب کھولو" to "یوٹیوب",
+        )
+        commands.forEach { (command, expectedApp) ->
+            val plan = parser.parse(command)
+            assertEquals(command, AssistantAction.OPEN_APP, plan?.action)
+            assertEquals(command, expectedApp, plan?.appName)
+            assertTrue(ActionPolicy.requiresConfirmation(plan!!.action))
+        }
+    }
+
     @Test fun parsesPhoneNavigationOnlyForSupportedExplicitActions() {
         val commands = mapOf(
             "Go home" to "home",
