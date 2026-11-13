@@ -30,6 +30,25 @@ class ReminderService {
         ),
       ),
     );
+    // Reconcile durable entries against the OS plugin's pending requests.
+    // A crash between secure-storage write and Android alarm registration
+    // must not leave a future reminder permanently dormant.
+    await restorePending();
+  }
+
+  Future<void> restorePending() async {
+    if (_schedulePending) return;
+    _schedulePending = true;
+    try {
+      final scheduled = await _notifications.pendingNotificationRequests();
+      final activeIds = scheduled.map((item) => item.id).toSet();
+      for (final reminder in await list()) {
+        if (activeIds.contains(reminder.id)) continue;
+        await _scheduleNotification(reminder);
+      }
+    } finally {
+      _schedulePending = false;
+    }
   }
 
   Future<List<ReminderItem>> list() async {
@@ -55,6 +74,28 @@ class ReminderService {
         return (DateTime.now().microsecondsSinceEpoch + _nextIdSeed) &
             0x7fffffff;
       });
+
+  Future<void> _scheduleNotification(ReminderItem reminder) async {
+    await _notifications.zonedSchedule(
+      reminder.id,
+      'Jiva reminder',
+      reminder.text,
+      tz.TZDateTime.from(reminder.triggerAt, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'jiva_reminders',
+          'Jiva reminders',
+          channelDescription: 'Scheduled Jiva reminders',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
 
   String _encode(List<ReminderItem> reminders) => jsonEncode(
         reminders.map((item) => {
@@ -93,25 +134,7 @@ class ReminderService {
       // enumerate later. If OS rejects alarm scheduling, rollback the record.
       await _storage.write(key: _itemsKey, value: _encode(updated));
       try {
-        await _notifications.zonedSchedule(
-          id,
-          'Jiva reminder',
-          reminder.text,
-          tz.TZDateTime.from(triggerAt, tz.local),
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'jiva_reminders',
-              'Jiva reminders',
-              channelDescription: 'Scheduled Jiva reminders',
-              importance: Importance.high,
-              priority: Priority.high,
-            ),
-            iOS: DarwinNotificationDetails(),
-          ),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
+        await _scheduleNotification(reminder);
       } catch (_) {
         if (oldValue == null) {
           await _storage.delete(key: _itemsKey);
