@@ -238,7 +238,11 @@ class _AssistantScreenState extends State<AssistantScreen>
     try {
       await _reminderService.initialize();
       final reminders = await _reminderService.list();
-      final hasKey = (await _keyStore.read()).isNotEmpty;
+      // Remove legacy long-lived Gemini credentials when upgrading to a
+      // production build; they are never needed by the secured gateway.
+      if (JivaGatewayRuntime.requireGateway) await _keyStore.clear();
+      final hasKey = JivaGatewayRuntime.requireGateway
+          ? false : (await _keyStore.read()).isNotEmpty;
       final storedEnabled = await _keyStore.readAssistantEnabled();
       final enabled = _userToggledAssistant ? _enabled : storedEnabled;
       final selectedVoice =
