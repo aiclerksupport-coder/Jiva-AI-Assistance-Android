@@ -25,6 +25,25 @@ class PhoneCapabilityPolicyTest {
         }
     }
 
+
+    @Test fun actionPolicyRequiresSafeNumbersAndAllowsMessageOnlySharing() {
+        assertFalse(ActionPolicy.canDispatch(IntentPlan(
+            AssistantAction.CALL, "Dial", phoneNumber = "*21*123#",
+        )))
+        assertTrue(ActionPolicy.canDispatch(IntentPlan(
+            AssistantAction.CALL, "Dial", phoneNumber = "+91 98765 43210",
+        )))
+        assertFalse(ActionPolicy.canDispatch(IntentPlan(
+            AssistantAction.SMS, "SMS", phoneNumber = "tel:9876543210",
+        )))
+        assertFalse(ActionPolicy.canDispatch(IntentPlan(
+            AssistantAction.WHATSAPP_SHARE, "Share", message = " ",
+        )))
+        assertTrue(ActionPolicy.canDispatch(IntentPlan(
+            AssistantAction.WHATSAPP_SHARE, "Share", message = "Namaste bhidu",
+        )))
+    }
+
     @Test fun reminderAvailabilityDoesNotPromiseDelivery() {
         val decision = PhoneCapabilityPolicy.decision(PhoneCapability.SCHEDULE_LOCAL_REMINDER)
         assertEquals(CapabilityOutcome.AVAILABLE_WITH_SYSTEM_PERMISSION, decision.outcome)

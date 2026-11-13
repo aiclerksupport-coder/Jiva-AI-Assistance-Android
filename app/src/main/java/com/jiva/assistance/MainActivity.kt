@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jiva.assistance.domain.AssistantAction
+import com.jiva.assistance.domain.AppLaunchMatch
 import com.jiva.assistance.security.OwnerKeyAuthorization
 import com.jiva.assistance.domain.IntentPlan
 import com.jiva.assistance.domain.VoicePresets
@@ -798,6 +799,7 @@ class MainActivity : FragmentActivity(), TextToSpeech.OnInitListener {
             }, onConfirm = confirm@{ confirmed ->
                 // Stale dialog callbacks and double taps must not repeat a handoff.
                 if (!vm.consumePendingPlan(plan)) return@confirm
+                try {
                 when (confirmed.action) {
                     AssistantAction.CALL -> launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(confirmed.phoneNumber.orEmpty())}")))
                     AssistantAction.SMS -> launch(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(confirmed.phoneNumber.orEmpty())}")).putExtra("sms_body", confirmed.message.orEmpty()))
@@ -805,9 +807,19 @@ class MainActivity : FragmentActivity(), TextToSpeech.OnInitListener {
                     AssistantAction.OPEN_SETTINGS -> launch(settingsIntent(confirmed.settingsTarget))
                     AssistantAction.CAMERA -> launch(Intent("android.media.action.IMAGE_CAPTURE"))
                     AssistantAction.OPEN_APP -> {
-                        val match = queryApps().firstOrNull { it.first.equals(confirmed.appName, true) }
-                            ?: queryApps().firstOrNull { it.first.contains(confirmed.appName.orEmpty(), true) }
-                        if (match != null) launch(match.second) else { appQuery = confirmed.appName.orEmpty(); appItems = queryApps(); showApps = true }
+                        val available = queryApps()
+                        val selected = AppLaunchMatch.select(
+                            confirmed.appName.orEmpty(), available.map { it.first },
+                        )
+                        if (selected != null) {
+                            launch(available[selected].second)
+                        } else {
+                            // Never guess which app the owner intended.
+                            appQuery = confirmed.appName.orEmpty()
+                            appItems = available
+                            showApps = true
+                            vm.showReply("Choose the exact installed app. Jiva will not guess from an ambiguous name.")
+                        }
                     }
                     AssistantAction.REMINDER -> vm.showReminderEditor()
                     AssistantAction.PHONE_NAVIGATION -> {
@@ -828,6 +840,9 @@ class MainActivity : FragmentActivity(), TextToSpeech.OnInitListener {
                         }
                     }
                     AssistantAction.CHAT -> Unit
+                }
+                } catch (error: Exception) {
+                    vm.showReply(error.message ?: "Android could not open that action. No call or message was sent.")
                 }
             })
         }
@@ -1109,7 +1124,8 @@ class MainActivity : FragmentActivity(), TextToSpeech.OnInitListener {
         return packageManager.queryIntentActivities(query, PackageManager.MATCH_ALL).mapNotNull { info ->
             val launch = packageManager.getLaunchIntentForPackage(info.activityInfo.packageName) ?: return@mapNotNull null
             info.loadLabel(packageManager).toString() to launch
-        }.distinctBy { it.first }.sortedBy { it.first.lowercase(Locale.getDefault()) }
+        }.distinctBy { it.second.component?.packageName to it.second.component?.className }
+            .sortedBy { it.first.lowercase(Locale.getDefault()) }
     }
 
     private fun settingsIntent(target: String?): Intent = when (target) {
@@ -1121,7 +1137,15 @@ class MainActivity : FragmentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun launch(intent: Intent) {
-        runCatching { startActivity(intent) }.onFailure { /* TODO: surface unavailable-action state in UI. */ }
+        // Android 11+ may filter resolveActivity() even when startActivity()
+        // works. Launch directly and propagate the real platform error to UI.
+        try {
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            throw IllegalStateException("No installed app can handle this action.")
+        } catch (_: SecurityException) {
+            throw IllegalStateException("Android denied this action. Check the required permission.")
+        }
     }
 
     override fun onDestroy() {

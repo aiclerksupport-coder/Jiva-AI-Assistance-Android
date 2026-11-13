@@ -6,6 +6,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'domain/wake_event_policy.dart';
+import 'domain/app_launch_match.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
@@ -1418,7 +1419,6 @@ class _AssistantScreenState extends State<AssistantScreen>
               if ({
                 AssistantAction.call,
                 AssistantAction.sms,
-                AssistantAction.whatsappShare,
               }.contains(plan.action)) ...[
                 const SizedBox(height: 12),
                 TextField(
@@ -1524,7 +1524,7 @@ class _AssistantScreenState extends State<AssistantScreen>
         AssistantAction.sms =>
           'Review the SMS in your messaging app and tap Send there.',
         AssistantAction.whatsappShare =>
-          'Choose the chat and tap Send in WhatsApp. Jiva cannot send silently.',
+          'Choose a messaging app and chat, then tap Send yourself. Jiva cannot send silently.',
         AssistantAction.openSettings =>
           'Jiva opens Android settings; you approve protected changes there.',
         AssistantAction.camera =>
@@ -1635,25 +1635,50 @@ class _AssistantScreenState extends State<AssistantScreen>
       excludeNonLaunchableApps: true,
       detectPlatformType: false,
     );
-    final matching = apps.where(
-      (app) => app.name.toLowerCase() == query.toLowerCase(),
+    final index = AppLaunchMatch.select(
+      query,
+      apps.map((app) => app.name).toList(growable: false),
     );
-    final exact = matching.isEmpty ? null : matching.first;
-    var packageName = exact?.packageName;
-    var appName = exact?.name;
-    for (final candidate in apps) {
-      if (packageName == null &&
-          candidate.name.toLowerCase().contains(query.toLowerCase())) {
-        packageName = candidate.packageName;
-        appName = candidate.name;
-        break;
+    String? selectedPackage;
+    String selectedName = '';
+    if (index != null) {
+      selectedPackage = apps[index].packageName;
+      selectedName = apps[index].name;
+    } else {
+      // No automatic guessing: the owner explicitly selects a launcher.
+      if (!mounted || !_enabled) return;
+      final filter = query.trim().toLowerCase();
+      final candidates = apps.where((app) => filter.isEmpty ||
+          app.name.toLowerCase().contains(filter)).take(15).toList();
+      if (candidates.isEmpty) {
+        throw StateError('No installed app matches "$query".');
       }
+      selectedPackage = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: const Text('Choose exact installed app'),
+          children: [
+            for (final candidate in candidates)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(
+                  dialogContext, candidate.packageName,
+                ),
+                child: Text('${candidate.name} (${candidate.packageName})'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      );
+      if (selectedPackage == null || !mounted || !_enabled) return;
+      selectedName = candidates
+          .firstWhere((app) => app.packageName == selectedPackage).name;
     }
-    if (packageName == null) {
-      throw Exception('No matching installed app was found.');
-    }
-    if (await InstalledApps.startApp(packageName) != true) {
-      throw Exception('Could not open $appName.');
+    if (!mounted || !_enabled) return;
+    if (await InstalledApps.startApp(selectedPackage) != true) {
+      throw StateError('Android could not open $selectedName.');
     }
   }
 

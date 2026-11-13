@@ -100,6 +100,11 @@ class JivaAccessibilityService : AccessibilityService() {
 
     private fun queueRequest(request: PendingRequest) {
         ensureJivaEnabled()
+        // A second tap cannot silently replace an earlier confirmed action.
+        // One user-reviewed request owns the queue until result or timeout.
+        check(pendingRequest == null) {
+            "Finish the previous screen action before starting another."
+        }
         pendingRequest = request
         handler.removeCallbacksAndMessages(null)
         handler.postDelayed({
