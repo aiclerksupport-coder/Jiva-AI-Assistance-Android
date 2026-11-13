@@ -336,7 +336,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         fun beginVoiceCapture(greet: Boolean, pauseWakeWord: Boolean = true) {
-            if (!state.enabled) return
+            if (!vm.state.value.enabled || vm.state.value.busy) return
+            // The pause acknowledgement is an intentional handoff: bypass
+            // the listening guard only after the microphone has been released.
+            if (pauseWakeWord && (vm.state.value.listening || waitingForWakePause)) return
             if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 vm.setListening(false)
                 vm.showReply("Microphone permission is required for voice commands.")
