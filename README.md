@@ -1,25 +1,29 @@
 # Jiva AI Assistance for Android
 
-Jiva is a user-controlled Android assistant starter. This MVP adds a voice-first UI, installed-app launcher, and scheduled local reminders. It uses Android speech recognition and text-to-speech services rather than claiming universal language understanding or unrestricted phone control.
+Jiva is a user-controlled Android assistant MVP with voice and typed commands, a Material 3 dashboard, contact-picker based call/message flows, reminders, app launching, and an optional user-supplied Gemini API key.
 
-## Features in this MVP
+## Features
 
-- Voice input through the device's Android speech recognition service.
-- Requests automatic language detection from compatible recognizers on Android 14+; available languages and detection quality depend on the recognition provider/device and may need internet access.
-- Spoken replies use the detected writing system where the device TTS engine has a matching voice; otherwise the device's default voice is used. Script detection is not the same as identifying every spoken language—e.g. Latin-script languages need the recognizer/default locale.
-- Hindi/English and common device-language command phrases for settings, camera, calls, messages, reminders, and app opening.
-- Search and launch installed apps using Android's launcher intents and package visibility declarations.
-- Schedule a local reminder with date/time and a notification. Android 13+ notification permission is requested after scheduling; notifications remain subject to user settings and OEM battery policies.
-- Calls open the system dialer; messages open the user's messaging app. Jiva does not silently place calls or send SMS.
+- Voice recognition using the speech service installed on the phone; on Android 14+ Jiva requests language detection from compatible recognizers. Actual languages/accuracy depend on the device/provider and may require internet.
+- Text-to-speech replies use the recognizer's reported language when available, otherwise the device's default voice.
+- Local command matching for common English, Hindi, Spanish, French, and Chinese phrases, with Gemini JSON intent parsing for broader natural language when a key is configured.
+- Gemini chat and intent parsing use the user's key and the Google Gemini `generateContent` REST API. The key is encrypted locally with an Android Keystore AES-GCM key. Requests are sent from the device directly to Google's API; do not share the key. API usage may incur provider charges and is subject to Google's terms/privacy policy.
+- Call/message/WhatsApp flows use Android contact picker, system dialer, SMS composer, and WhatsApp share UI. User must review and confirm; Jiva does not silently call or send messages.
+- Schedule local reminders with notifications; Android notification permissions and power-management settings can affect delivery.
+- Search and launch installed apps using Android launcher intents. Protected device settings open the corresponding Android settings panel and require the user to make any change.
+
+## Gemini setup
+
+1. Install/run the app and tap **Connect Gemini**.
+2. Enter your own Gemini API key and save. This app does not bundle a developer key.
+3. Type or speak a request. Gemini handles requests not understood by the local phrase parser. If its structured response requests a supported phone action, Jiva opens the relevant user-confirmation flow.
+
+Model configured in this MVP: `gemini-2.5-flash`. Model availability can depend on the user's Google AI account/region and may change; API errors are shown in the assistant UI. Direct client-side API keys can be extracted from a compromised/rooted device or app process; for a production service, use a backend with authentication, quotas, and key management rather than treating a client key as secret.
 
 ## Build and run
 
-Open in Android Studio with Android SDK 35 installed, sync Gradle, and run the `app` configuration on a device/emulator. Grant microphone permission when asked. A compatible speech-recognition service and TTS voice are required; recognition may require network access. To test reminders, allow notifications and schedule a future time.
+Open in Android Studio with Android SDK 35 installed, sync Gradle, and run the `app` configuration. Grant microphone permission when asked; allow notifications to receive reminders. The app needs internet access for Gemini and possibly speech recognition. Test contact selection and settings on a physical device or emulator with appropriate apps installed.
 
-## Honest language support
+## Honest limitations and privacy
 
-There is no single Android API that guarantees accurate, offline, automatic recognition of every language on every phone. Jiva asks compatible speech services to detect a language where the OS/provider supports it, but providers may ignore that request. The app displays this limitation instead of pretending language detection always works. For reliable broad multilingual conversation and intent recognition, a later version needs an explicitly selected speech/AI provider, language coverage, privacy disclosure, network/error handling, and user consent before audio is sent to a service.
-
-## Android capability and privacy boundaries
-
-An ordinary Android app cannot silently control the entire phone or access other apps' private data. Protected actions require supported APIs, roles, runtime permissions, and user consent; some operations are restricted or unavailable. Jiva requests microphone access only for voice use and uses system intents for calls/messages. It does not keep audio recordings. Avoid using accessibility services to bypass Android safeguards.
+No normal Android app can control every phone feature, read other apps' private data, or interact with every third-party app as if it were the owner. Jiva uses public Android intents and permission/confirmation flows. WhatsApp integration is a share handoff: the user chooses the chat and taps send. Speech recognition, Gemini chat, and voice data handling depend on the selected providers; do not treat this as guaranteed offline, universal language support, or human-level understanding. Conversations in this MVP are held in memory only; the most recent turns are sent to Gemini for context when the user explicitly configures a key.
