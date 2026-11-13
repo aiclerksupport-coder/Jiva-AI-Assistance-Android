@@ -1639,15 +1639,46 @@ class _AssistantScreenState extends State<AssistantScreen>
       query,
       apps.map((app) => app.name).toList(growable: false),
     );
-    if (index == null) {
-      throw StateError(
-        'No unique installed app matches "$query". Use the exact app name '
-        'to avoid opening the wrong application.',
+    String? selectedPackage;
+    String selectedName = '';
+    if (index != null) {
+      selectedPackage = apps[index].packageName;
+      selectedName = apps[index].name;
+    } else {
+      // No automatic guessing: the owner explicitly selects a launcher.
+      if (!mounted || !_enabled) return;
+      final filter = query.trim().toLowerCase();
+      final candidates = apps.where((app) => filter.isEmpty ||
+          app.name.toLowerCase().contains(filter)).take(15).toList();
+      if (candidates.isEmpty) {
+        throw StateError('No installed app matches "$query".');
+      }
+      selectedPackage = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: const Text('Choose exact installed app'),
+          children: [
+            for (final candidate in candidates)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(
+                  dialogContext, candidate.packageName,
+                ),
+                child: Text('${candidate.name} (${candidate.packageName})'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
       );
+      if (selectedPackage == null || !mounted || !_enabled) return;
+      selectedName = candidates
+          .firstWhere((app) => app.packageName == selectedPackage).name;
     }
-    final matched = apps[index];
-    if (await InstalledApps.startApp(matched.packageName) != true) {
-      throw StateError('Android could not open ${matched.name}.');
+    if (!mounted || !_enabled) return;
+    if (await InstalledApps.startApp(selectedPackage) != true) {
+      throw StateError('Android could not open $selectedName.');
     }
   }
 
