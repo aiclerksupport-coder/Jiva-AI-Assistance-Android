@@ -11,6 +11,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.jiva.assistance.domain.ReminderItem
 import com.jiva.assistance.domain.ReminderIdPolicy
+import com.jiva.assistance.domain.ReminderRowCodec
 
 class ReminderScheduler(private val context: Context) {
     private val prefs = context.getSharedPreferences("jiva_reminders", Context.MODE_PRIVATE)
@@ -23,10 +24,11 @@ class ReminderScheduler(private val context: Context) {
         // schedule calls must never reuse a PendingIntent request code.
         synchronized(reminderLock) {
             val existing = (prefs.getStringSet("items", emptySet()) ?: emptySet()).toSet()
-            val used = existing.mapNotNull { it.substringBefore('|').toIntOrNull() }.toSet()
+            val used = existing.mapNotNull(ReminderRowCodec::decode)
+                .map { it.id }.toSet()
             val id = ReminderIdPolicy.next(used)
             val reminder = ReminderItem(id, text.trim(), triggerAtMillis)
-            val row = "$id|$triggerAtMillis|${reminder.text.replace("|", " ")}"
+            val row = ReminderRowCodec.encode(reminder)
             val intent = Intent(context, ReminderReceiver::class.java)
                 .putExtra("id", id).putExtra("text", reminder.text)
             val pending = PendingIntent.getBroadcast(
@@ -70,7 +72,7 @@ class ReminderScheduler(private val context: Context) {
         }
         prefs.edit().putStringSet(
             "items",
-            valid.map { "${it.id}|${it.triggerAtMillis}|${it.text.replace("|", " ")}" }.toSet(),
+            valid.map(ReminderRowCodec::encode).toSet(),
         ).apply()
     }
 
@@ -79,10 +81,9 @@ class ReminderScheduler(private val context: Context) {
         internal val reminderLock = Any()
     }
 
-    fun list(): List<ReminderItem> = (prefs.getStringSet("items", emptySet()) ?: emptySet()).mapNotNull { row ->
-        val parts = row.split('|', limit = 3)
-        if (parts.size != 3) null else ReminderItem(parts[0].toIntOrNull() ?: return@mapNotNull null, parts[2], parts[1].toLongOrNull() ?: return@mapNotNull null)
-    }.sortedBy { it.triggerAtMillis }
+    fun list(): List<ReminderItem> = (prefs.getStringSet("items", emptySet()) ?: emptySet())
+        .mapNotNull(ReminderRowCodec::decode)
+        .sortedBy { it.triggerAtMillis }
 }
 
 class ReminderReceiver : BroadcastReceiver() {
@@ -105,7 +106,9 @@ class ReminderReceiver : BroadcastReceiver() {
         synchronized(ReminderScheduler.reminderLock) {
             val existing = prefs.getStringSet("items", emptySet()) ?: emptySet()
             prefs.edit().putStringSet(
-                "items", existing.filterNot { it.startsWith("$id|") }.toSet(),
+                "items", existing.filterNot {
+                    ReminderRowCodec.decode(it)?.id == id
+                }.toSet(),
             ).commit()
         }
     }
