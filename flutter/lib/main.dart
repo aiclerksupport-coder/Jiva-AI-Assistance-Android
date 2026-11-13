@@ -29,6 +29,7 @@ import 'services/api_key_store.dart';
 import 'services/gemini_repository.dart';
 import 'services/gemini_live_client.dart';
 import 'services/gemini_retry_policy.dart';
+import 'services/jiva_gateway_runtime.dart';
 import 'services/reminder_service.dart';
 import 'services/wake_word_service.dart';
 import 'domain/voice_preset.dart';
@@ -341,26 +342,32 @@ class _AssistantScreenState extends State<AssistantScreen>
       return;
     }
     try {
-      final key = await _keyStore.read();
-      if (key.isEmpty) {
-        _showReply(
-          "I didn't recognize that command. Connect your own Gemini API key "
-          'for multilingual natural-language understanding.',
+      final Map<String, dynamic> json;
+      if (JivaGatewayRuntime.requireGateway) {
+        // Production never reads or transmits the legacy long-lived Gemini key.
+        json = await (await JivaGatewayRuntime.client).interpret(text);
+      } else {
+        final key = await _keyStore.read();
+        if (key.isEmpty) {
+          _showReply(
+            "I didn't recognize that command. Connect a development Gemini "
+            'API key or configure the secure Jiva gateway.',
+          );
+          return;
+        }
+        json = await _gemini.interpret(
+          key,
+          text,
+          onRetry: (attempt, _) {
+            if (mounted && _enabled) {
+              setState(() {
+                _reply =
+                    'Gemini connection interrupted. Retrying (${attempt + 1}/${GeminiRetryPolicy.maxAttempts})…';
+              });
+            }
+          },
         );
-        return;
       }
-      final json = await _gemini.interpret(
-        key,
-        text,
-        onRetry: (attempt, _) {
-          if (mounted && _enabled) {
-            setState(() {
-              _reply =
-                  'Gemini connection interrupted. Retrying (${attempt + 1}/${GeminiRetryPolicy.maxAttempts})…';
-            });
-          }
-        },
-      );
       if (!_enabled || !mounted) return;
       final plan = _planFromJson(json);
       if (!mounted) return;
@@ -382,9 +389,10 @@ class _AssistantScreenState extends State<AssistantScreen>
   Future<void> _speakReply(String text) async {
     try {
       if (!_enabled) return;
-      final key = await _keyStore.read();
+      final secure = JivaGatewayRuntime.requireGateway;
+      final key = secure ? '' : await _keyStore.read();
       if (!_enabled) return;
-      if (key.isEmpty) {
+      if (!secure && key.isEmpty) {
         // By default flutter_tts may complete as soon as playback starts.
         // Do not open speech recognition until the greeting has finished.
         await _tts.awaitSpeakCompletion(true);
@@ -393,6 +401,9 @@ class _AssistantScreenState extends State<AssistantScreen>
       }
       final response = await _geminiLive.respond(
         apiKey: key,
+        ephemeralTokenProvider: secure
+            ? () async => (await JivaGatewayRuntime.client).createLiveToken()
+            : null,
         text: text,
         voiceName: _selectedVoice,
         onRetry: (attempt, _) {
@@ -1073,6 +1084,26 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   Future<void> _openKeySettings() async {
+    if (JivaGatewayRuntime.requireGateway) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Secure Jiva account'),
+          content: const Text(
+            'This release uses Firebase Authentication, App Check and '
+            'a protected Gemini gateway. Personal Gemini API keys cannot '
+            'be saved in production. Configure the gateway and sign in '
+            'to your verified Jiva account before using cloud AI.',
+          ),
+          actions: [TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          )],
+        ),
+      );
+      return;
+    }
     _idleTimer?.cancel();
     try {
       await _pauseWakeWordManager();
