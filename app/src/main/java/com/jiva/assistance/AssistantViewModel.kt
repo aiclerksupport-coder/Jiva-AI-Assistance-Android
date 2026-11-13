@@ -37,6 +37,8 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
     private var commandJob: Job? = null
 
     init {
+        // Upgrade safety: production never retains a legacy BYOK Gemini key.
+        if (JivaGatewayRuntime.required) runCatching { keyStore.clear() }
         _state.value = _state.value.copy(
             selectedVoice = VoicePresets.find(preferences.getString("voice", VoicePresets.default.voiceName).orEmpty()).voiceName,
             enabled = preferences.getBoolean("assistant_enabled", true),
