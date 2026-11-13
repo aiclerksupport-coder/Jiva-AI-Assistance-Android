@@ -58,7 +58,7 @@ object JivaGatewayRuntime {
         return JivaGatewayClient(BuildConfig.JIVA_GATEWAY_URL) {
             val user = FirebaseAuth.getInstance(firebase).currentUser
                 ?: error("Sign in to your verified Jiva account before using cloud AI.")
-            check(!user.isAnonymous) { "A verified Jiva user account is required." }
+            check(!user.isAnonymous && user.isEmailVerified) { "A verified Jiva user account is required." }
             val id = user.getIdToken(false).await().token
             val appCheck = FirebaseAppCheck.getInstance(firebase)
                 .getAppCheckToken(false).await().token
@@ -78,6 +78,10 @@ object JivaGatewayRuntime {
             .signInWithEmailAndPassword(email.trim(), password).await()
         val user = FirebaseAuth.getInstance(firebase).currentUser
         check(user != null && !user.isAnonymous) { "Verified Jiva login required." }
+        if (!user.isEmailVerified) {
+            user.sendEmailVerification().await()
+            throw IllegalStateException("Verify your email address, then sign in again.")
+        }
     }
 
     fun signOut(context: Context) {
