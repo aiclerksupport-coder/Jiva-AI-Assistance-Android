@@ -148,6 +148,15 @@ internal class JivaSpeechEngine(
             val request = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                // Android 14+ can identify Hindi, Gujarati, Marathi and English
+                // where the installed recognition service supports this hint.
+                if (Build.VERSION.SDK_INT >= 34) {
+                    putExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_DETECTION, true)
+                    putStringArrayListExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE_DETECTION_ALLOWED_LANGUAGES,
+                        arrayListOf("hi-IN", "gu-IN", "mr-IN", "en-IN"),
+                    )
+                }
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, input.readEnd)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, SpeechAudioInput.SAMPLE_RATE)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
