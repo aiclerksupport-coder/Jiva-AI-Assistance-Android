@@ -16,7 +16,7 @@ Implementation **Jiva ke existing Kotlin/Flutter source** par hai, kisi third-pa
 
 - Native Kotlin `JivaAccessibilityService`: event package AND window ID vs active window root package AND window ID identity check.
 - Flutter Android plugin `JivaAccessibilityService`: same package + window identity check.
-- Both: no screen assistance when Android keyguard locked. New requests blocked; queued request cancelled on subsequent accessibility event if phone locks.
+- Both: no screen assistance when Android keyguard locked. New requests blocked; queued request cancelled on subsequent accessibility event if phone locks. Dynamic Android **ACTION_SCREEN_OFF** system receiver additionally cancels pending action immediately on screen-off, even if no Accessibility event is delivered, and is unregistered on service teardown.
 - Both: event handler validates one `rootInActiveWindow`, then passes that very same node to click/scroll action rather than refetching and potentially acting on another window.
 - Native: private-screen traversal exceeding maximum depth now treated as private (fail-closed) instead of safe.
 - Pure package matching policy and negative-path JVM tests for Kotlin app and Flutter plugin. Existing owner-only fingerprint/PIN and direct Gemini BYOK remain untouched.
@@ -54,7 +54,7 @@ val clicked = clickVisibleText(request.value.orEmpty(), root)
 
 ### E-03: Pending request runs after screen lock/unlock (HIGH — SOURCE FIX)
 **Risk:** Pending click queued, phone locks, unlock takes place, then old click executes on a newly visible target.
-**Fix:** On queue, on any pending event, and before direct phone navigation: check `KeyguardManager.isKeyguardLocked`. Lock -> clear pending request and return cancellation.
+**Fix:** On queue, on any pending event, and before direct phone navigation: check `KeyguardManager.isKeyguardLocked`. Lock -> clear pending request and return cancellation. Register a system-only `ACTION_SCREEN_OFF` receiver for immediate cancellation; unregister in `onUnbind`/`onDestroy` to avoid leaks.
 ```kotlin
 if (isPhoneLocked()) {
     pendingRequest = null
