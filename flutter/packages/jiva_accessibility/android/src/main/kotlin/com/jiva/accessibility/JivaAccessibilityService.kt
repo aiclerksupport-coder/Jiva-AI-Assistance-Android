@@ -19,7 +19,7 @@ class JivaAccessibilityService : AccessibilityService() {
         val request = pendingRequest ?: return
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val eventPackage = event.packageName?.toString().orEmpty()
-        if (eventPackage == packageName ||
+        if (eventPackage.isBlank() || eventPackage == packageName ||
             eventPackage == "com.android.settings" ||
             eventPackage == "com.android.systemui" ||
             eventPackage == "android"
