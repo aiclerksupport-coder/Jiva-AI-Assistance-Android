@@ -284,6 +284,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }
 
+        fun pauseWakeService() {
+            if (vm.wakeWordServiceEnabled()) {
+                startService(
+                    Intent(this@MainActivity, WakeWordService::class.java)
+                        .setAction(WakeWordService.ACTION_PAUSE),
+                )
+            }
+        }
+
         fun runScreenAction(action: String) {
             try {
                 pauseWakeService()
@@ -320,15 +329,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             } finally {
                 pendingScreenClick = ""
                 sensitiveClickReviewed = false
-            }
-        }
-
-        fun pauseWakeService() {
-            if (vm.wakeWordServiceEnabled()) {
-                startService(
-                    Intent(this@MainActivity, WakeWordService::class.java)
-                        .setAction(WakeWordService.ACTION_PAUSE),
-                )
             }
         }
 
@@ -1019,7 +1019,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun settingsIntent(target: String?): Intent = when (target) {
         "wifi" -> Intent(Settings.Panel.ACTION_WIFI)
-        "bluetooth" -> Intent(Settings.Panel.ACTION_BLUETOOTH)
+        "bluetooth" -> Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
         "display" -> Intent(Settings.ACTION_DISPLAY_SETTINGS)
         "sound" -> Intent(Settings.ACTION_SOUND_SETTINGS)
         else -> Intent(Settings.ACTION_SETTINGS)
