@@ -61,6 +61,8 @@ import com.jiva.assistance.platform.contacts.ContactPicker
 import com.jiva.assistance.accessibility.JivaAccessibilityService
 import java.util.Locale
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.collect
@@ -243,6 +245,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         var wakeModels by remember { mutableStateOf(vm.wakeWordModels()) }
         var wakeServiceActive by remember { mutableStateOf(vm.wakeWordServiceEnabled()) }
         var wakeStartPending by remember { mutableStateOf(false) }
+        var wakeImportPending by remember { mutableStateOf(false) }
         val coroutineScope = rememberCoroutineScope()
         var appQuery by remember { mutableStateOf("") }
         var showApps by remember { mutableStateOf(false) }
@@ -428,14 +431,23 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
         }
         val wakeModelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) {
-                try {
-                    val path = WakeWordModelImporter.import(this@MainActivity, uri, pendingWakeModelName)
-                    vm.saveWakeWordModel(pendingWakeModelName, path)
-                    wakeModels = vm.wakeWordModels()
-                    wakeSetupError = ""
-                } catch (error: Exception) {
-                    wakeSetupError = error.message ?: "Could not import the wake-word model."
+            if (uri == null) {
+                wakeImportPending = false
+            } else {
+                val selectedModel = pendingWakeModelName
+                coroutineScope.launch {
+                    try {
+                        val path = withContext(Dispatchers.IO) {
+                            WakeWordModelImporter.import(this@MainActivity, uri, selectedModel)
+                        }
+                        vm.saveWakeWordModel(selectedModel, path)
+                        wakeModels = vm.wakeWordModels()
+                        wakeSetupError = ""
+                    } catch (error: Exception) {
+                        wakeSetupError = error.message ?: "Could not import the wake-word model."
+                    } finally {
+                        wakeImportPending = false
+                    }
                 }
             }
         }
@@ -837,11 +849,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             wakeSetupError = error.message ?: "Could not save the AccessKey."
                         }
                     }) { Text("Save AccessKey") }
-                    TextButton(onClick = {
+                    TextButton(enabled = !wakeImportPending, onClick = {
+                        wakeImportPending = true
                         pendingWakeModelName = "jiva"
                         wakeModelPicker.launch(arrayOf("*/*"))
                     }) { Text("Import Jiva .ppn · ${if (wakeModels.any { java.io.File(it).name == "jiva.ppn" }) "ready" else "missing"}") }
-                    TextButton(onClick = {
+                    TextButton(enabled = !wakeImportPending, onClick = {
+                        wakeImportPending = true
                         pendingWakeModelName = "giva"
                         wakeModelPicker.launch(arrayOf("*/*"))
                     }) { Text("Import Giva .ppn · ${if (wakeModels.any { java.io.File(it).name == "giva.ppn" }) "ready" else "missing"}") }

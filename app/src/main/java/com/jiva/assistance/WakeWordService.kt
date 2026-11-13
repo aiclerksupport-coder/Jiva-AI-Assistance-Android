@@ -22,7 +22,8 @@ import kotlinx.coroutines.sync.withLock
 
 class WakeWordService : Service() {
     private val store by lazy { ApiKeyStore(this) }
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val serviceJob = SupervisorJob()
+    private val serviceScope = CoroutineScope(serviceJob + Dispatchers.IO)
     private val managerMutex = Mutex()
     private var porcupineManager: PorcupineManager? = null
     private var managerStarted = false
@@ -193,14 +194,19 @@ class WakeWordService : Service() {
     override fun onDestroy() {
         store.setWakeServiceEnabled(false)
         serviceScope.launch {
-            managerMutex.withLock {
-                try {
-                    if (managerStarted) porcupineManager?.stop()
-                } finally {
-                    managerStarted = false
-                    porcupineManager?.delete()
-                    porcupineManager = null
+            try {
+                managerMutex.withLock {
+                    try {
+                        if (managerStarted) porcupineManager?.stop()
+                    } finally {
+                        managerStarted = false
+                        porcupineManager?.delete()
+                        porcupineManager = null
+                    }
                 }
+            } finally {
+                // A destroyed service must not retain an active coroutine scope.
+                serviceJob.cancel()
             }
         }
         sendBroadcast(Intent(ACTION_STOPPED).setPackage(packageName))
