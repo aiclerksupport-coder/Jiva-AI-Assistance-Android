@@ -76,6 +76,8 @@ class ReminderService {
         iOS: DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
     );
     final reminders = await list();
     reminders.removeWhere((item) => item.id == id);
