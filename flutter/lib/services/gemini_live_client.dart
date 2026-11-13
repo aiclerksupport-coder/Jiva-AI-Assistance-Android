@@ -59,9 +59,10 @@ class GeminiLiveClient {
     required String apiKey,
     required String text,
     required String voiceName,
+    Future<String> Function()? ephemeralTokenProvider,
     void Function(int attempt, Object error)? onRetry,
   }) async {
-    if (apiKey.trim().isEmpty) {
+    if (ephemeralTokenProvider == null && apiKey.trim().isEmpty) {
       throw ArgumentError('Add your Gemini API key in Settings.');
     }
     if (text.trim().isEmpty) {
@@ -73,12 +74,25 @@ class GeminiLiveClient {
       if (_requestGeneration != generation) {
         throw StateError('Gemini request cancelled.');
       }
+      // One-shot ephemeral Live tokens are requested per connection attempt.
+      // The long-lived server key is never added to a client WebSocket URL.
+      final token = ephemeralTokenProvider == null
+          ? null : await ephemeralTokenProvider();
+      if (ephemeralTokenProvider != null && (token == null || token.isEmpty)) {
+        throw StateError('Secure Live session token is missing.');
+      }
+      if (_requestGeneration != generation) {
+        throw StateError('Gemini request cancelled.');
+      }
       final channel = WebSocketChannel.connect(
         Uri(
           scheme: 'wss',
           host: 'generativelanguage.googleapis.com',
-          path: '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent',
-          queryParameters: {'key': apiKey},
+          path: token == null
+              ? '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent'
+              : '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained',
+          queryParameters: token == null
+              ? {'key': apiKey} : {'access_token': token},
         ),
       );
       _activeChannel = channel;
