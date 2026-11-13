@@ -385,7 +385,10 @@ class _AssistantScreenState extends State<AssistantScreen>
       final key = await _keyStore.read();
       if (!_enabled) return;
       if (key.isEmpty) {
-        await _tts.speak(text);
+        // By default flutter_tts may complete as soon as playback starts.
+        // Do not open speech recognition until the greeting has finished.
+        await _tts.awaitSpeakCompletion(true);
+        await _tts.speak(text).timeout(const Duration(seconds: 12));
         return;
       }
       final response = await _geminiLive.respond(
