@@ -40,9 +40,12 @@ class GeminiLiveClient {
         apiKey: String,
         text: String,
         voiceName: String,
+        ephemeralTokenProvider: (suspend () -> String)? = null,
         onRetry: (attempt: Int, error: Throwable) -> Unit = { _, _ -> },
     ): String {
-        require(apiKey.isNotBlank()) { "Add your Gemini API key in Settings." }
+        require(ephemeralTokenProvider != null || apiKey.isNotBlank()) {
+            "A secure Live token or development API key is required."
+        }
         require(text.isNotBlank()) { "There is no text to send to Gemini Live." }
         val voice = VoicePresets.find(voiceName).voiceName
         val generation = requestGeneration
@@ -56,7 +59,9 @@ class GeminiLiveClient {
         ) {
             if (requestGeneration != generation) throw CancellationException("Gemini request cancelled.")
             withContext(Dispatchers.IO) {
-                withTimeout(75_000) { requestReply(apiKey, text, voice) }
+                withTimeout(75_000) {
+                    requestReply(apiKey, text, voice, ephemeralTokenProvider)
+                }
             }
         }
         withContext(Dispatchers.IO) { play(reply.audio) }
@@ -75,17 +80,33 @@ class GeminiLiveClient {
         stopPlayback()
     }
 
-    private suspend fun requestReply(apiKey: String, text: String, voiceName: String): LiveReply {
+    private suspend fun requestReply(
+        apiKey: String,
+        text: String,
+        voiceName: String,
+        ephemeralTokenProvider: (suspend () -> String)?,
+    ): LiveReply {
+        val token = ephemeralTokenProvider?.invoke()
+        if (ephemeralTokenProvider != null) {
+            check(!token.isNullOrBlank()) { "Secure Gemini Live token was not issued." }
+        }
         val result = CompletableDeferred<LiveReply>()
         val audio = ByteArrayOutputStream()
         val transcript = StringBuilder()
         var sentText = false
-        val url = HttpUrl.Builder()
+        val builder = HttpUrl.Builder()
             .scheme("wss")
             .host("generativelanguage.googleapis.com")
-            .addPathSegments("ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent")
-            .addQueryParameter("key", apiKey)
-            .build()
+        if (token != null) {
+            builder.addPathSegments(
+                "ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained",
+            ).addQueryParameter("access_token", token)
+        } else {
+            builder.addPathSegments(
+                "ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent",
+            ).addQueryParameter("key", apiKey)
+        }
+        val url = builder.build()
         val request = Request.Builder().url(url).build()
         lateinit var socket: WebSocket
         socket = httpClient.newWebSocket(request, object : WebSocketListener() {
