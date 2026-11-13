@@ -37,6 +37,46 @@ void main() {
     gateway.close();
   });
 
+  test('live-token requires identity, attestation and never follows redirects', () async {
+    var calls = 0;
+    final gateway = JivaGatewayClient(
+      baseUrl: Uri.parse('https://jiva.example/'),
+      client: MockClient((request) async {
+        calls++;
+        expect(request.url.toString(), 'https://jiva.example/v1/live-token');
+        expect(request.followRedirects, isFalse);
+        expect(request.headers['Authorization'], 'Bearer verified-user');
+        expect(request.headers['X-Firebase-AppCheck'], 'valid-attestation');
+        return http.Response(jsonEncode({'token':'ephemeral-one-session'}), 200);
+      }),
+      tokens: () async => const JivaGatewayTokens(
+        firebaseIdToken: 'verified-user',
+        appCheckToken: 'valid-attestation',
+      ),
+    );
+    expect(await gateway.createLiveToken(), 'ephemeral-one-session');
+    expect(calls, 1);
+    gateway.close();
+  });
+
+  test('redirects are rejected without forwarding security credentials', () async {
+    final gateway = JivaGatewayClient(
+      baseUrl: Uri.parse('https://jiva.example/'),
+      client: MockClient((request) async {
+        expect(request.followRedirects, isFalse);
+        return http.Response('', 302, headers: {
+          'location': 'https://attacker.example/harvest',
+        });
+      }),
+      tokens: () async => const JivaGatewayTokens(
+        firebaseIdToken: 'signed-in',
+        appCheckToken: 'attested',
+      ),
+    );
+    await expectLater(gateway.interpret('hello'), throwsStateError);
+    gateway.close();
+  });
+
   test('gateway refuses non-HTTPS endpoints', () {
     expect(
       () => JivaGatewayClient(
