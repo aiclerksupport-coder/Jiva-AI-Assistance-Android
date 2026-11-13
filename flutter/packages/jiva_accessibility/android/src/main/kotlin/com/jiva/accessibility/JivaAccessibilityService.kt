@@ -3,6 +3,9 @@ package com.jiva.accessibility
 import android.accessibilityservice.AccessibilityService
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
 import com.jiva.accessibility.WindowPackagePolicy
 import android.os.Handler
 import android.os.Looper
@@ -12,10 +15,33 @@ import android.view.accessibility.AccessibilityNodeInfo
 class JivaAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var pendingRequest: PendingRequest? = null
+    private var screenOffRegistered = false
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != Intent.ACTION_SCREEN_OFF) return
+            val request = pendingRequest ?: return
+            pendingRequest = null
+            handler.removeCallbacksAndMessages(null)
+            report(request.type, emptyList(), "Screen turned off; pending action cancelled.")
+        }
+    }
+
+    private fun unregisterScreenOffReceiver() {
+        if (screenOffRegistered) {
+            unregisterReceiver(screenOffReceiver)
+            screenOffRegistered = false
+        }
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        if (!screenOffRegistered) {
+            // ACTION_SCREEN_OFF is an Android system protected broadcast;
+            // a dynamic receiver cancels queued actions before next UI event.
+            registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+            screenOffRegistered = true
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -82,6 +108,7 @@ class JivaAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
+        unregisterScreenOffReceiver()
         if (instance === this) instance = null
         pendingRequest?.let {
             report(it.type, emptyList(), "Accessibility was disabled; request cancelled.")
@@ -92,6 +119,7 @@ class JivaAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        unregisterScreenOffReceiver()
         if (instance === this) instance = null
         pendingRequest = null
         handler.removeCallbacksAndMessages(null)
