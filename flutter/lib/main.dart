@@ -166,7 +166,7 @@ class _AssistantScreenState extends State<AssistantScreen>
 
   void _initializeWakeForegroundTask() {
     FlutterForegroundTask.init(
-      androidNotificationOptions: const AndroidNotificationOptions(
+      androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'jiva_wake_word',
         channelName: 'Jiva wake-word microphone',
         channelDescription:
@@ -618,7 +618,7 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   void _onWakeWordError(PorcupineException error) {
-    _wakeWordError = error.message;
+    _wakeWordError = error.message ?? 'Unknown wake-word error';
     _wakeWordActive = false;
     unawaited(
       FlutterForegroundTask.updateService(
@@ -1030,6 +1030,7 @@ class _AssistantScreenState extends State<AssistantScreen>
       _showReply('Could not pause wake-word microphone: $error');
       return;
     }
+    if (!mounted) return;
     final controller = TextEditingController();
     final save = await showDialog<bool>(
       context: context,
@@ -1115,7 +1116,7 @@ class _AssistantScreenState extends State<AssistantScreen>
 
   Future<void> _importWakeWordModel(String name) async {
     try {
-      final selection = await FilePicker.platform.pickFiles(
+      final selection = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['ppn'],
         withData: false,
@@ -1160,6 +1161,7 @@ class _AssistantScreenState extends State<AssistantScreen>
       _showReply('Could not pause wake-word microphone: $error');
       return;
     }
+    if (!mounted) return;
     final controller = TextEditingController();
     var dialogMessage = _wakeWordError;
     await showDialog<void>(
