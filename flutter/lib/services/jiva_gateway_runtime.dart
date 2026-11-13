@@ -52,7 +52,7 @@ class JivaGatewayRuntime {
     // Real Play Integrity is mandatory; never use the debug provider in a
     // production build, including sideloaded APKs.
     await FirebaseAppCheck.instance.activate(
-      androidProvider: AndroidProvider.playIntegrity,
+      providerAndroid: const AndroidPlayIntegrityProvider(),
     );
     return JivaGatewayClient(
       baseUrl: url,
