@@ -14,7 +14,9 @@ class JivaGatewayClient(
     private val tokenProvider: suspend () -> JivaGatewayTokens,
 ) {
     private val base = baseUrl.trimEnd('/').also {
-        require(it.startsWith("https://") && !it.contains("@") && !it.contains("?") && !it.contains("#")) {
+        val uri = java.net.URI(it)
+        require(uri.scheme == "https" && !uri.host.isNullOrBlank() &&
+            uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null) {
             "Jiva gateway must be HTTPS without credentials or query parameters."
         }
     }
@@ -34,6 +36,7 @@ class JivaGatewayClient(
         }
         val connection = (URL("$base/$path").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
+            instanceFollowRedirects = false
             connectTimeout = 15_000
             readTimeout = 30_000
             doOutput = true
