@@ -1166,7 +1166,19 @@ class _AssistantScreenState extends State<AssistantScreen>
 
   Future<void> _openKeySettings() async {
     if (JivaGatewayRuntime.requireGateway) {
-      await _openSecureAccountSettings();
+      _idleTimer?.cancel();
+      try {
+        // Never keep wake-word microphone active while credentials are typed.
+        await _pauseWakeWordManager();
+        await _openSecureAccountSettings();
+      } catch (_) {
+        _showReply('Could not open verified account settings securely.');
+      } finally {
+        if (mounted && _enabled) {
+          await _resumeWakeWordManager();
+          _resetSleepTimer();
+        }
+      }
       return;
     }
     _idleTimer?.cancel();
