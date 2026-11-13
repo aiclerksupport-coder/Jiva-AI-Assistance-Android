@@ -33,9 +33,9 @@ class JivaAccessibilityService : AccessibilityService() {
         }
         try {
             ensureJivaEnabled()
-            if (containsPassword(root, 0)) {
+            if (containsPassword(root, 0) || looksPrivate(root, 0)) {
                 throw IllegalStateException(
-                    "Screen assistance is blocked while a password field is visible.",
+                    "Screen assistance is blocked on a password, login, banking, or payment screen.",
                 )
             }
             when (request.type) {
@@ -123,8 +123,8 @@ class JivaAccessibilityService : AccessibilityService() {
         val normalized = normalize(label)
         require(normalized.isNotEmpty()) { "Enter the visible button text to click." }
         val root = rootInActiveWindow ?: return false
-        if (containsPassword(root, 0)) {
-            throw IllegalStateException("Screen clicks are blocked while a password field is visible.")
+        if (containsPassword(root, 0) || looksPrivate(root, 0)) {
+            throw IllegalStateException("Screen clicks are blocked on private or credential screens.")
         }
         val matches = mutableListOf<AccessibilityNodeInfo>()
         findMatches(root, normalized, matches, 0)
@@ -133,14 +133,15 @@ class JivaAccessibilityService : AccessibilityService() {
         while (!target.isClickable) {
             target = target.parent ?: return false
         }
+        if (!target.isEnabled || !target.isVisibleToUser || target.isPassword) return false
         return target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
     }
 
     fun performScreenAction(action: String): Boolean {
         ensureJivaEnabled()
         val root = rootInActiveWindow ?: return false
-        if (containsPassword(root, 0)) {
-            throw IllegalStateException("Screen actions are blocked while a password field is visible.")
+        if (containsPassword(root, 0) || looksPrivate(root, 0)) {
+            throw IllegalStateException("Screen actions are blocked on private or credential screens.")
         }
         return when (action) {
             ACTION_BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
@@ -176,6 +177,30 @@ class JivaAccessibilityService : AccessibilityService() {
             }
         }
         return false
+    }
+
+    /** Defense in depth: text heuristics cannot certify every Android window as safe. */
+    private fun looksPrivate(node: AccessibilityNodeInfo, depth: Int): Boolean {
+        if (depth > MAX_DEPTH) return true
+        if (!node.isVisibleToUser) return false
+        val labels = listOfNotNull(node.text?.toString(), node.contentDescription?.toString())
+        if (labels.any(::containsPrivateTerm)) return true
+        for (index in 0 until node.childCount) {
+            if (node.getChild(index)?.let { looksPrivate(it, depth + 1) } == true) return true
+        }
+        return false
+    }
+
+    private fun containsPrivateTerm(value: String): Boolean {
+        val text = normalize(value)
+        return PRIVATE_SCREEN_TERMS.any { term ->
+            if (term.any { it.code > 127 }) {
+                text.contains(term)
+            } else {
+                Regex("(?<![\\p{L}\\p{N}])\${Regex.escape(term)}(?![\\p{L}\\p{N}])")
+                    .containsMatchIn(text)
+            }
+        }
     }
 
     private fun findScrollable(
@@ -267,6 +292,20 @@ class JivaAccessibilityService : AccessibilityService() {
         const val PHONE_QUICK_SETTINGS = "quick_settings"
         const val PREFERENCES = "jiva_screen_assist"
         const val ENABLED_KEY = "enabled"
+        // Curated denylist; intentionally conservative for private/account screens.
+        private val PRIVATE_SCREEN_TERMS = listOf(
+            "password", "passcode", "otp", "verification code", "pin code", "enter pin",
+            "bank account", "banking", "net banking", "card number", "cvv", "cvc",
+            "upi pin", "payment pin", "account number", "account recovery",
+            "पासवर्ड", "ओटीपी", "यूपीआई पिन", "बैंक खाता", "खाता नंबर",
+            "પાસવર્ડ", "ઓટીપી", "બેંક ખાતું", "યુપીઆઈ પિન",
+            "கடவுச்சொல்", "வங்கி கணக்கு", "ஒரு முறை கடவுச்சொல்",
+            "పాస్‌వర్డ్", "బ్యాంక్ ఖాతా", "ఓటిపి",
+            "পাসওয়ার্ড", "ওটিপি", "ব্যাংক অ্যাকাউন্ট",
+            "ਪਾਸਵਰਡ", "ਓਟੀਪੀ", "ਬੈਂਕ ਖਾਤਾ",
+            "پاس ورڈ", "او ٹی پی", "بینک اکاؤنٹ",
+        ).map { it.lowercase(java.util.Locale.ROOT) }
+
         private const val MAX_DEPTH = 20
         private const val MAX_LINES = 150
         private const val MAX_TEXT_LENGTH = 160
