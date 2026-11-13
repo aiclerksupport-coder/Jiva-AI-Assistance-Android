@@ -1,4 +1,5 @@
 import 'assistant_models.dart';
+import 'phone_number_policy.dart';
 
 class ActionPolicy {
   static bool requiresConfirmation(AssistantAction action) =>
@@ -10,8 +11,9 @@ class ActionPolicy {
         return false;
       case AssistantAction.call:
       case AssistantAction.sms:
+        return PhoneNumberPolicy.isSafe(plan.phoneNumber);
       case AssistantAction.whatsappShare:
-        return plan.phoneNumber?.trim().isNotEmpty ?? false;
+        return plan.message?.trim().isNotEmpty ?? false;
       case AssistantAction.openApp:
         return plan.appName?.trim().isNotEmpty ?? false;
       case AssistantAction.reminder:
