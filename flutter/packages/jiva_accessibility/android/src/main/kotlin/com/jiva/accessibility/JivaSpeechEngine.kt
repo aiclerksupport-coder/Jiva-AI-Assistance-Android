@@ -12,6 +12,8 @@ import android.media.audiofx.NoiseSuppressor
 import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -28,6 +30,8 @@ internal class JivaSpeechEngine(
     private var recognizer: SpeechRecognizer? = null
     private var audioInput: SpeechAudioInput? = null
     private var cancelling = false
+    private val timeoutHandler = Handler(Looper.getMainLooper())
+    private var timeoutRunnable: Runnable? = null
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -41,6 +45,7 @@ internal class JivaSpeechEngine(
     }
 
     fun release() {
+        clearTimeout()
         cancelling = true
         recognizer?.cancel()
         audioInput?.close()
@@ -88,6 +93,7 @@ internal class JivaSpeechEngine(
 
                 override fun onError(error: Int) {
                     if (recognizer !== speechRecognizer) return
+                    clearTimeout()
                     val enhancedInputWasUsed = audioInput != null
                     closeInput()
                     if (cancelling) {
@@ -114,6 +120,7 @@ internal class JivaSpeechEngine(
 
                 override fun onResults(results: Bundle?) {
                     if (recognizer !== speechRecognizer) return
+                    clearTimeout()
                     val text = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull()
@@ -153,6 +160,7 @@ internal class JivaSpeechEngine(
             }
             input.start()
             speechRecognizer.startListening(request)
+            armTimeout()
             channel.invokeMethod("audioProcessingStatus", input.status)
             result.success(true)
         } catch (error: Exception) {
@@ -166,15 +174,44 @@ internal class JivaSpeechEngine(
     }
 
     private fun stopListening() {
+        clearTimeout()
         cancelling = true
         recognizer?.cancel()
         closeInput()
         sendStatus("idle")
     }
 
+    private fun clearTimeout() {
+        timeoutRunnable?.let(timeoutHandler::removeCallbacks)
+        timeoutRunnable = null
+    }
+
+    private fun armTimeout() {
+        clearTimeout()
+        val task = Runnable {
+            timeoutRunnable = null
+            // Release the AudioRecord, recognition service and pipe even if
+            // the OEM speech implementation never sends a final callback.
+            if (recognizer != null) {
+                release()
+                sendStatus("idle")
+                channel.invokeMethod(
+                    "speechError",
+                    "Listening timed out. Tap Speak to try again.",
+                )
+            }
+        }
+        timeoutRunnable = task
+        timeoutHandler.postDelayed(task, MAX_CAPTURE_MILLIS)
+    }
+
     private fun closeInput() {
         audioInput?.close()
         audioInput = null
+    }
+
+    private companion object {
+        const val MAX_CAPTURE_MILLIS = 60_000L
     }
 
     private fun sendStatus(status: String) {
