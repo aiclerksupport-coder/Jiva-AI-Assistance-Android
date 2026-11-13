@@ -38,6 +38,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -58,6 +59,7 @@ import com.jiva.assistance.domain.AssistantAction
 import com.jiva.assistance.domain.IntentPlan
 import com.jiva.assistance.domain.VoicePresets
 import com.jiva.assistance.data.WakeWordModelImporter
+import com.jiva.assistance.data.JivaGatewayRuntime
 import com.jiva.assistance.data.ProcessedAudioInput
 import com.jiva.assistance.platform.contacts.ContactPicker
 import com.jiva.assistance.accessibility.JivaAccessibilityService
@@ -276,6 +278,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         var keyText by remember { mutableStateOf("") }
         var picovoiceKeyText by remember { mutableStateOf("") }
         var keyError by remember { mutableStateOf("") }
+        var secureEmail by remember { mutableStateOf("") }
+        var securePassword by remember { mutableStateOf("") }
+        var secureLoginBusy by remember { mutableStateOf(false) }
         var wakeSetupError by remember { mutableStateOf("") }
         var testingKey by remember { mutableStateOf(false) }
         var keyVerified by remember { mutableStateOf(false) }
@@ -586,6 +591,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                             ) {
                                 Text(
                                     when {
+                                        JivaGatewayRuntime.required -> "Secure Gemini account"
                                         keyVerified -> "Gemini verified"
                                         vm.hasApiKey() -> "Gemini key saved"
                                         else -> "Gemini key"
@@ -829,7 +835,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             })
         }
 
-        if (showKey) AlertDialog(onDismissRequest = { if (!testingKey) showKey = false }, title = { Text("Connect Gemini to Jiva") }, text = {
+        if (showKey && !JivaGatewayRuntime.required) AlertDialog(onDismissRequest = { if (!testingKey) showKey = false }, title = { Text("Connect Gemini to Jiva") }, text = {
             Column {
                 OutlinedTextField(
                     keyText,
@@ -871,6 +877,65 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 onClick = { vm.clearApiKey(); keyText = ""; keyVerified = false; showKey = false },
             ) { Text("Remove key") }
         })
+
+        if (showKey && JivaGatewayRuntime.required) AlertDialog(
+            onDismissRequest = {
+                if (!secureLoginBusy) {
+                    securePassword = ""
+                    showKey = false
+                }
+            },
+            title = { Text("Verified Jiva account") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Release Gemini uses your verified Firebase account, Play Integrity and the secure gateway. No personal Gemini API key is stored.")
+                    OutlinedTextField(
+                        value = secureEmail,
+                        onValueChange = { secureEmail = it.trim() },
+                        label = { Text("Email") },
+                        singleLine = true,
+                        enabled = !secureLoginBusy,
+                    )
+                    OutlinedTextField(
+                        value = securePassword,
+                        onValueChange = { securePassword = it },
+                        label = { Text("Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        enabled = !secureLoginBusy,
+                    )
+                    if (keyError.isNotBlank()) Text(keyError, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !secureLoginBusy && secureEmail.isNotBlank() && securePassword.isNotBlank(),
+                    onClick = {
+                        if (secureLoginBusy) return@Button
+                        secureLoginBusy = true
+                        keyError = ""
+                        coroutineScope.launch {
+                            try {
+                                JivaGatewayRuntime.signIn(this@MainActivity, secureEmail, securePassword)
+                                securePassword = ""
+                                showKey = false
+                                vm.showReply("Verified Jiva account signed in.")
+                            } catch (_: Exception) {
+                                keyError = "Sign-in failed. Check your Firebase account or gateway configuration."
+                            } finally {
+                                secureLoginBusy = false
+                            }
+                        }
+                    },
+                ) { Text(if (secureLoginBusy) "Signing in…" else "Sign in") }
+            },
+            dismissButton = {
+                TextButton(enabled = !secureLoginBusy, onClick = {
+                    securePassword = ""
+                    showKey = false
+                }) { Text("Cancel") }
+            },
+        )
 
         if (showWakeSettings) AlertDialog(
             onDismissRequest = { showWakeSettings = false },
