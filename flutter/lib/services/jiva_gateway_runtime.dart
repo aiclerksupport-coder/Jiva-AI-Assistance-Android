@@ -10,7 +10,7 @@ import 'jiva_gateway_client.dart';
 class JivaGatewayRuntime {
   JivaGatewayRuntime._();
 
-  static const required = bool.fromEnvironment(
+  static const requireGateway = bool.fromEnvironment(
     'JIVA_REQUIRE_GATEWAY',
     defaultValue: bool.fromEnvironment('dart.vm.product'),
   );
