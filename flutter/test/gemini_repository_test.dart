@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:jiva_assistance/services/gemini_repository.dart';
+import 'package:jiva_assistance/services/gemini_retry_policy.dart';
 
 void main() {
   test('verifies key access to the configured generation model', () async {
