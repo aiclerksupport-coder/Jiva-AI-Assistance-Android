@@ -28,6 +28,27 @@ class ReminderScheduler(private val context: Context) {
         reminder
     }
 
+    /** Re-register alarms after reboot or package replacement. Past entries are dropped. */
+    fun restorePending() {
+        val now = System.currentTimeMillis()
+        val valid = list().filter { it.triggerAtMillis > now }
+        for (reminder in valid) {
+            val intent = Intent(context, ReminderReceiver::class.java)
+                .putExtra("id", reminder.id)
+                .putExtra("text", reminder.text)
+            val pending = PendingIntent.getBroadcast(
+                context, reminder.id, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            context.getSystemService(AlarmManager::class.java)
+                .setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, reminder.triggerAtMillis, pending)
+        }
+        prefs.edit().putStringSet(
+            "items",
+            valid.map { "${it.id}|${it.triggerAtMillis}|${it.text.replace("|", " ")}" }.toSet(),
+        ).apply()
+    }
+
     fun list(): List<ReminderItem> = (prefs.getStringSet("items", emptySet()) ?: emptySet()).mapNotNull { row ->
         val parts = row.split('|', limit = 3)
         if (parts.size != 3) null else ReminderItem(parts[0].toIntOrNull() ?: return@mapNotNull null, parts[2], parts[1].toLongOrNull() ?: return@mapNotNull null)
@@ -52,5 +73,17 @@ class ReminderReceiver : BroadcastReceiver() {
             .build())
         val prefs = context.getSharedPreferences("jiva_reminders", Context.MODE_PRIVATE)
         prefs.edit().putStringSet("items", (prefs.getStringSet("items", emptySet()) ?: emptySet()).filterNot { it.startsWith("$id|") }.toSet()).apply()
+    }
+}
+
+/** Android clears AlarmManager alarms on reboot; restore only future reminders. */
+class ReminderRestoreReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action !in setOf(
+                Intent.ACTION_BOOT_COMPLETED,
+                Intent.ACTION_MY_PACKAGE_REPLACED,
+            )
+        ) return
+        ReminderScheduler(context).restorePending()
     }
 }

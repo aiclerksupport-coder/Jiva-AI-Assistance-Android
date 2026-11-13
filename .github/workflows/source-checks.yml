@@ -1,0 +1,56 @@
+name: Jiva source checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-android:
+    name: Kotlin Android compile and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android API 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Compile, test and assemble debug APK
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jiva-native-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  flutter:
+    name: Dart analysis and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.9'
+          cache: true
+      - name: Flutter dependencies
+        working-directory: flutter
+        run: flutter pub get
+      - name: Dart static analysis
+        working-directory: flutter
+        run: flutter analyze
+      - name: Flutter tests
+        working-directory: flutter
+        run: flutter test
