@@ -19,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicBoolean
 
 class WakeWordService : Service() {
     private val store by lazy { ApiKeyStore(this) }
@@ -27,6 +28,8 @@ class WakeWordService : Service() {
     private val managerMutex = Mutex()
     private var porcupineManager: PorcupineManager? = null
     private var managerStarted = false
+    // Picovoice may deliver overlapping detections before stop() completes.
+    private val wakeHandoffPending = AtomicBoolean(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -88,8 +91,10 @@ class WakeWordService : Service() {
                 .build(this) { keywordIndex -> onWakeWordDetected(keywordIndex) }
                 .also { porcupineManager = it }
             if (!managerStarted) {
+                // Re-arm only after the microphone successfully starts again.
                 manager.start()
                 managerStarted = true
+                wakeHandoffPending.set(false)
             }
             updateNotification("Listening for Jiva or Giva")
         } catch (error: Exception) {
@@ -116,6 +121,7 @@ class WakeWordService : Service() {
     }
 
     private fun onWakeWordDetected(keywordIndex: Int) {
+        if (!wakeHandoffPending.compareAndSet(false, true)) return
         serviceScope.launch {
             try {
                 stopWakeWordManager()
@@ -131,6 +137,7 @@ class WakeWordService : Service() {
                         .setPackage(packageName)
                         .putExtra(EXTRA_ERROR, error.message ?: "Could not pause wake-word listening."),
                 )
+                // Do not re-arm until a subsequent successful ACTION_RESUME.
             }
         }
     }
