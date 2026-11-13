@@ -632,6 +632,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                         cancellingSpeech = true
                                         tts?.stop()
                                         speech?.cancel()
+                                        speech?.destroy()
+                                        speech = null
                                         vm.stopSpeech()
                                         vm.setListening(false)
                                     },
