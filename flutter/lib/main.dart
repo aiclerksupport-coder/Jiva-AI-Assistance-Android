@@ -5,6 +5,7 @@ import 'package:app_settings/app_settings.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'domain/wake_event_policy.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_native_contact_picker/flutter_native_contact_picker.dart';
@@ -93,6 +94,8 @@ class _AssistantScreenState extends State<AssistantScreen>
   bool _isForeground = true;
   bool _wakeWordActive = false;
   bool _wakeWordPending = false;
+  int _wakeGeneration = 0;
+  bool _wakeGreetingInProgress = false;
   bool _wakeManagerStarted = false;
   bool _screenAccessibilityEnabled = false;
   bool _screenAssistPending = false;
@@ -382,7 +385,10 @@ class _AssistantScreenState extends State<AssistantScreen>
       final key = await _keyStore.read();
       if (!_enabled) return;
       if (key.isEmpty) {
-        await _tts.speak(text);
+        // By default flutter_tts may complete as soon as playback starts.
+        // Do not open speech recognition until the greeting has finished.
+        await _tts.awaitSpeakCompletion(true);
+        await _tts.speak(text).timeout(const Duration(seconds: 12));
         return;
       }
       final response = await _geminiLive.respond(
@@ -420,6 +426,12 @@ class _AssistantScreenState extends State<AssistantScreen>
         await stateSubscription.cancel();
       }
     } catch (error) {
+      // A timed-out TTS utterance must not continue into mic capture.
+      try {
+        await _tts.stop();
+      } catch (_) {
+        // The speech provider may already be gone.
+      }
       if (mounted && _enabled) {
         setState(() {
           _reply = '$_reply\nVoice response failed: $error';
@@ -548,6 +560,12 @@ class _AssistantScreenState extends State<AssistantScreen>
       }
     }
     _wakeManagerStarted = false;
+    _wakeWordPending = false;
+    _wakeGeneration++;
+    if (_wakeGreetingInProgress) {
+      _wakeGreetingInProgress = false;
+      if (mounted) setState(() => _busy = false);
+    }
     try {
       if (Platform.isAndroid && await FlutterForegroundTask.isRunningService) {
         await FlutterForegroundTask.stopService();
@@ -573,8 +591,9 @@ class _AssistantScreenState extends State<AssistantScreen>
     if (pendingPause != null) return pendingPause;
     final manager = _porcupineManager;
     if (manager == null || !_wakeManagerStarted) return Future<void>.value();
-    _wakeManagerStarted = false;
-    final pause = manager.stop().whenComplete(() => _wakeManagerPause = null);
+    final pause = manager.stop().then((_) {
+      _wakeManagerStarted = false;
+    }).whenComplete(() => _wakeManagerPause = null);
     _wakeManagerPause = pause;
     return pause;
   }
@@ -584,6 +603,8 @@ class _AssistantScreenState extends State<AssistantScreen>
         !_wakeWordActive ||
         _porcupineManager == null ||
         _wakeManagerStarted ||
+        _wakeWordPending ||
+        _wakeManagerPause != null ||
         _busy ||
         _listening ||
         _pendingPlan != null) {
@@ -607,6 +628,16 @@ class _AssistantScreenState extends State<AssistantScreen>
       unawaited(_stopBackgroundWakeWord());
       return;
     }
+    // One wake event per microphone handoff. Ignore callback storms and
+    // detections arriving while a command or another capture is active.
+    if (!WakeEventPolicy.shouldQueue(
+      enabled: _enabled,
+      active: _wakeWordActive,
+      pending: _wakeWordPending,
+      busy: _busy,
+      listening: _listening,
+      hasActionPlan: _pendingPlan != null,
+    )) return;
     _wakeWordPending = true;
     unawaited(_pauseWakeWordManager());
     unawaited(
@@ -631,31 +662,36 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   Future<void> _handleWakeWord() async {
-    if (!_enabled ||
-        !_wakeWordPending ||
-        _busy ||
-        _listening ||
-        _pendingPlan != null) {
-      return;
-    }
+    if (!mounted || !_enabled || !_isForeground ||
+        !_wakeWordPending || _busy || _listening ||
+        _pendingPlan != null) return;
     _wakeWordPending = false;
-    try {
-      await _pauseWakeWordManager();
-    } catch (error) {
-      _showReply('Could not pause wake-word microphone: $error');
-      return;
-    }
-    if (!mounted) return;
+    final generation = ++_wakeGeneration;
+    _wakeGreetingInProgress = true;
+    // Claim the UI before awaiting microphone release. Two foreground
+    // callbacks can never start two simultaneous greetings/captures.
     setState(() {
       _sleeping = false;
       _busy = true;
       _reply = 'Ji, boliye';
     });
     _idleTimer?.cancel();
-    await _speakReply('Ji, boliye');
-    if (!mounted) return;
-    setState(() => _busy = false);
-    await _listen();
+    try {
+      await _pauseWakeWordManager();
+      if (!mounted || !_enabled || generation != _wakeGeneration) return;
+      await _speakReply('Ji, boliye');
+      if (!mounted || !_enabled || generation != _wakeGeneration) return;
+      _wakeGreetingInProgress = false;
+      setState(() => _busy = false);
+      await _listen();
+    } catch (error) {
+      _showReply('Wake-word handoff failed: $error');
+    } finally {
+      if (generation == _wakeGeneration && _wakeGreetingInProgress) {
+        _wakeGreetingInProgress = false;
+        if (mounted && _busy) setState(() => _busy = false);
+      }
+    }
   }
 
   IntentPlan _planFromJson(Map<String, dynamic> json) {
@@ -689,8 +725,8 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   Future<void> _listen() async {
-    if (!_enabled) return;
-    if (!_enabled) return;
+    if (!mounted || !_enabled || _listening) return;
+    setState(() => _listening = true);
     _idleTimer?.cancel();
     try {
       await _pauseWakeWordManager();
@@ -741,6 +777,7 @@ class _AssistantScreenState extends State<AssistantScreen>
       }
       await _listenWithSpeechToText();
     } catch (error) {
+      if (mounted) setState(() => _listening = false);
       _showReply('Could not start speech recognition: $error');
     }
   }
@@ -767,6 +804,13 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   Future<void> _stop() async {
+    // Invalidate in-flight greeting so Stop cannot open the mic afterwards.
+    _wakeGeneration++;
+    _wakeWordPending = false;
+    if (_wakeGreetingInProgress) {
+      _wakeGreetingInProgress = false;
+      if (mounted) setState(() => _busy = false);
+    }
     if (Platform.isAndroid) await JivaSpeech.stop();
     await _speech.stop();
     await _tts.stop();
@@ -801,6 +845,11 @@ class _AssistantScreenState extends State<AssistantScreen>
   Future<void> _setAssistantEnabled(bool enabled) async {
     if (_enabled == enabled) return;
     _userToggledAssistant = true;
+    if (!enabled) {
+      _wakeGeneration++;
+      _wakeWordPending = false;
+      _wakeGreetingInProgress = false;
+    }
     _idleTimer?.cancel();
     if (!enabled && Platform.isAndroid) await JivaSpeech.stop();
     setState(() {

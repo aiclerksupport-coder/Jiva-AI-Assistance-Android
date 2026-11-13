@@ -12,6 +12,8 @@ import android.media.audiofx.NoiseSuppressor
 import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -28,6 +30,8 @@ internal class JivaSpeechEngine(
     private var recognizer: SpeechRecognizer? = null
     private var audioInput: SpeechAudioInput? = null
     private var cancelling = false
+    private val timeoutHandler = Handler(Looper.getMainLooper())
+    private var timeoutRunnable: Runnable? = null
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -41,6 +45,7 @@ internal class JivaSpeechEngine(
     }
 
     fun release() {
+        clearTimeout()
         cancelling = true
         recognizer?.cancel()
         audioInput?.close()
@@ -88,6 +93,7 @@ internal class JivaSpeechEngine(
 
                 override fun onError(error: Int) {
                     if (recognizer !== speechRecognizer) return
+                    clearTimeout()
                     val enhancedInputWasUsed = audioInput != null
                     closeInput()
                     if (cancelling) {
@@ -104,6 +110,8 @@ internal class JivaSpeechEngine(
                             "Enhanced microphone audio was rejected; retrying with standard phone speech recognition.",
                         )
                     } else {
+                        recognizer = null
+                        speechRecognizer.destroy()
                         sendStatus("idle")
                         channel.invokeMethod(
                             "speechError",
@@ -114,17 +122,23 @@ internal class JivaSpeechEngine(
 
                 override fun onResults(results: Bundle?) {
                     if (recognizer !== speechRecognizer) return
+                    clearTimeout()
                     val text = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull()
                         .orEmpty()
                     closeInput()
-                    sendStatus("idle")
+                    recognizer = null
+                    speechRecognizer.destroy()
                     if (cancelling) {
                         cancelling = false
                     } else {
+                        // Dart reserves _busy synchronously when it receives
+                        // the result. Notify it before reporting idle so the
+                        // wake listener cannot re-arm between those callbacks.
                         channel.invokeMethod("speechResult", text)
                     }
+                    sendStatus("idle")
                 }
 
                 override fun onPartialResults(partialResults: Bundle?) {
@@ -141,6 +155,15 @@ internal class JivaSpeechEngine(
             val request = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                // Android 14+ can identify Hindi, Gujarati, Marathi and English
+                // where the installed recognition service supports this hint.
+                if (Build.VERSION.SDK_INT >= 34) {
+                    putExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_DETECTION, true)
+                    putStringArrayListExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE_DETECTION_ALLOWED_LANGUAGES,
+                        arrayListOf("hi-IN", "gu-IN", "mr-IN", "en-IN"),
+                    )
+                }
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, input.readEnd)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, SpeechAudioInput.SAMPLE_RATE)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
@@ -153,6 +176,7 @@ internal class JivaSpeechEngine(
             }
             input.start()
             speechRecognizer.startListening(request)
+            armTimeout()
             channel.invokeMethod("audioProcessingStatus", input.status)
             result.success(true)
         } catch (error: Exception) {
@@ -166,15 +190,44 @@ internal class JivaSpeechEngine(
     }
 
     private fun stopListening() {
+        clearTimeout()
         cancelling = true
         recognizer?.cancel()
         closeInput()
         sendStatus("idle")
     }
 
+    private fun clearTimeout() {
+        timeoutRunnable?.let(timeoutHandler::removeCallbacks)
+        timeoutRunnable = null
+    }
+
+    private fun armTimeout() {
+        clearTimeout()
+        val task = Runnable {
+            timeoutRunnable = null
+            // Release the AudioRecord, recognition service and pipe even if
+            // the OEM speech implementation never sends a final callback.
+            if (recognizer != null) {
+                release()
+                sendStatus("idle")
+                channel.invokeMethod(
+                    "speechError",
+                    "Listening timed out. Tap Speak to try again.",
+                )
+            }
+        }
+        timeoutRunnable = task
+        timeoutHandler.postDelayed(task, MAX_CAPTURE_MILLIS)
+    }
+
     private fun closeInput() {
         audioInput?.close()
         audioInput = null
+    }
+
+    private companion object {
+        const val MAX_CAPTURE_MILLIS = 60_000L
     }
 
     private fun sendStatus(status: String) {

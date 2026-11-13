@@ -7,6 +7,8 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.ContactsContract
 import android.provider.Settings
 import android.speech.RecognitionListener
@@ -71,6 +73,31 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var speech: SpeechRecognizer? = null
     private var processedAudioInput: ProcessedAudioInput? = null
     private var cancellingSpeech = false
+    private val speechTimeoutHandler = Handler(Looper.getMainLooper())
+    private var speechTimeoutTask: Runnable? = null
+
+    private fun cancelSpeechTimeout() {
+        speechTimeoutTask?.let(speechTimeoutHandler::removeCallbacks)
+        speechTimeoutTask = null
+    }
+
+    private fun armSpeechTimeout(recognizer: SpeechRecognizer, onError: (String) -> Unit) {
+        cancelSpeechTimeout()
+        val task = Runnable {
+            speechTimeoutTask = null
+            if (speech === recognizer) {
+                speech = null
+                cancellingSpeech = true
+                recognizer.cancel()
+                recognizer.destroy()
+                processedAudioInput?.close()
+                processedAudioInput = null
+                onError("Listening timed out. Tap Speak to try again.")
+            }
+        }
+        speechTimeoutTask = task
+        speechTimeoutHandler.postDelayed(task, 60_000L)
+    }
     private var tts: TextToSpeech? = null
     private var detectedLanguage: String? = null
 
@@ -111,6 +138,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         onAudioStatus: (String) -> Unit,
     ) {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) { onError("Speech recognition is not available on this phone."); return }
+        cancelSpeechTimeout()
         cancellingSpeech = true
         speech?.destroy()
         processedAudioInput?.close()
@@ -148,6 +176,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         recognizer.setRecognitionListener(object : RecognitionListener {
             override fun onResults(results: Bundle?) {
                 if (speech !== recognizer) return
+                cancelSpeechTimeout()
+                speech = null
+                recognizer.destroy()
                 processedAudioInput?.close()
                 processedAudioInput = null
                 if (cancellingSpeech) {
@@ -159,6 +190,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             override fun onError(error: Int) {
                 if (speech !== recognizer) return
+                cancelSpeechTimeout()
                 processedAudioInput?.close()
                 processedAudioInput = null
                 if (cancellingSpeech) {
@@ -171,6 +203,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     speech = null
                     listen(onText, onError, patientListening, false, onAudioStatus)
                 } else {
+                    speech = null
+                    recognizer.destroy()
                     onError("Speech recognition failed. Check the phone's speech service and try again.")
                 }
             }
@@ -197,7 +231,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, ProcessedAudioInput.CHANNEL_COUNT)
                 putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, ProcessedAudioInput.ENCODING)
             }
-            if (android.os.Build.VERSION.SDK_INT >= 34) putExtra("android.speech.extra.ENABLE_LANGUAGE_DETECTION", true)
+            if (Build.VERSION.SDK_INT >= 34) {
+                // Optional hint; OEM recognizers may ignore language detection.
+                putExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_DETECTION, true)
+            }
         }
         if (input != null) {
             try {
@@ -214,6 +251,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
         try {
             recognizer.startListening(request)
+            armSpeechTimeout(recognizer, onError)
         } catch (error: Exception) {
             processedAudioInput?.close()
             processedAudioInput = null
@@ -336,7 +374,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
 
         fun beginVoiceCapture(greet: Boolean, pauseWakeWord: Boolean = true) {
-            if (!state.enabled) return
+            if (!vm.state.value.enabled || vm.state.value.busy) return
+            // The pause acknowledgement is an intentional handoff: bypass
+            // the listening guard only after the microphone has been released.
+            if (pauseWakeWord && (vm.state.value.listening || waitingForWakePause)) return
             if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 vm.setListening(false)
                 vm.showReply("Microphone permission is required for voice commands.")
@@ -374,6 +415,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             if (!enabled) {
                 processedAudioInput?.close()
                 processedAudioInput = null
+                cancelSpeechTimeout()
                 cancellingSpeech = true
                 speech?.cancel()
                 speech?.destroy()
@@ -586,9 +628,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                                     onClick = {
                                         processedAudioInput?.close()
                                         processedAudioInput = null
+                                        cancelSpeechTimeout()
                                         cancellingSpeech = true
                                         tts?.stop()
                                         speech?.cancel()
+                                        speech?.destroy()
+                                        speech = null
                                         vm.stopSpeech()
                                         vm.setListening(false)
                                     },
@@ -1044,6 +1089,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onDestroy() {
+        cancelSpeechTimeout()
         processedAudioInput?.close()
         processedAudioInput = null
         cancellingSpeech = true

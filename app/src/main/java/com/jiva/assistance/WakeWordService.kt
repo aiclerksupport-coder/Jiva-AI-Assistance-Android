@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import ai.picovoice.porcupine.PorcupineManager
 import com.jiva.assistance.data.ApiKeyStore
+import com.jiva.assistance.domain.WakeHandoffGate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +28,8 @@ class WakeWordService : Service() {
     private val managerMutex = Mutex()
     private var porcupineManager: PorcupineManager? = null
     private var managerStarted = false
+    // Picovoice may deliver overlapping detections before stop() completes.
+    private val wakeHandoff = WakeHandoffGate()
 
     override fun onCreate() {
         super.onCreate()
@@ -36,6 +39,7 @@ class WakeWordService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                wakeHandoff.disarm()
                 store.setWakeServiceEnabled(false)
                 stopSelf()
                 return START_NOT_STICKY
@@ -50,6 +54,9 @@ class WakeWordService : Service() {
                 return START_STICKY
             }
             ACTION_PAUSE -> {
+                // Block callbacks immediately, even while stop() is awaiting
+                // the Picovoice microphone mutex.
+                wakeHandoff.disarm()
                 serviceScope.launch {
                     try {
                         stopWakeWordManager()
@@ -88,8 +95,10 @@ class WakeWordService : Service() {
                 .build(this) { keywordIndex -> onWakeWordDetected(keywordIndex) }
                 .also { porcupineManager = it }
             if (!managerStarted) {
+                // Re-arm only after the microphone successfully starts again.
                 manager.start()
                 managerStarted = true
+                wakeHandoff.arm()
             }
             updateNotification("Listening for Jiva or Giva")
         } catch (error: Exception) {
@@ -116,6 +125,7 @@ class WakeWordService : Service() {
     }
 
     private fun onWakeWordDetected(keywordIndex: Int) {
+        if (!wakeHandoff.claim()) return
         serviceScope.launch {
             try {
                 stopWakeWordManager()
@@ -131,6 +141,7 @@ class WakeWordService : Service() {
                         .setPackage(packageName)
                         .putExtra(EXTRA_ERROR, error.message ?: "Could not pause wake-word listening."),
                 )
+                // Do not re-arm until a subsequent successful ACTION_RESUME.
             }
         }
     }
@@ -192,7 +203,10 @@ class WakeWordService : Service() {
     }
 
     override fun onDestroy() {
-        store.setWakeServiceEnabled(false)
+        // A system-initiated service teardown is not a user opt-out.
+        // ACTION_STOP and the assistant's Off switch already persist false.
+        // Keeping the preference lets the UI offer recovery after process death.
+        wakeHandoff.disarm()
         serviceScope.launch {
             try {
                 managerMutex.withLock {
