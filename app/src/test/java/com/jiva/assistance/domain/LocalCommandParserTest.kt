@@ -30,6 +30,41 @@ class LocalCommandParserTest {
         assertEquals(AssistantAction.OPEN_APP, plan?.action)
         assertEquals("YouTube", plan?.appName)
         assertTrue(ActionPolicy.canDispatch(plan!!))
+        assertTrue(ActionPolicy.requiresConfirmation(plan.action))
+    }
+
+    @Test fun parsesAppLaunchInIndianLanguagesAndCanonicalizesCommonAppAliases() {
+        val commands = mapOf(
+            "WhatsApp kholo" to "WhatsApp",
+            "Instagram app chalao" to "Instagram",
+            "यूट्यूब खोलो" to "YouTube",
+            "टेलीग्राम चालू करो" to "Telegram",
+            "વોટ્સએપ ખોલો" to "WhatsApp",
+            "வாட்ஸ்அப் திற" to "WhatsApp",
+            "యూట్యూబ్ తెరువు" to "YouTube",
+            "ফেসবুক খোলো" to "Facebook",
+            "ਇੰਸਟਾਗ੍ਰਾਮ ਖੋਲ੍ਹੋ" to "Instagram",
+            "یوٹیوب کھولو" to "YouTube",
+            "Please open Google Maps" to "Maps",
+        )
+        commands.forEach { (command, expectedApp) ->
+            val plan = parser.parse(command)
+            assertEquals(command, AssistantAction.OPEN_APP, plan?.action)
+            assertEquals(command, expectedApp, plan?.appName)
+            assertTrue("$command must retain the explicit confirmation policy", ActionPolicy.requiresConfirmation(plan!!.action))
+            assertTrue("$command should be a valid app launch plan", ActionPolicy.canDispatch(plan))
+        }
+    }
+
+    @Test fun preservesUnrecognizedInstalledAppNamesForLauncherSearch() {
+        val plan = parser.parse("open My Local Bank App")
+        assertEquals(AssistantAction.OPEN_APP, plan?.action)
+        assertEquals("My Local Bank App", plan?.appName)
+    }
+
+    @Test fun doesNotTurnAmbiguousConversationIntoAppLaunch() {
+        assertNull(parser.parse("I need help with homework"))
+        assertNull(parser.parse("Instagram is a photo sharing app"))
     }
 
     @Test fun parsesPhoneNavigationOnlyForSupportedExplicitActions() {
