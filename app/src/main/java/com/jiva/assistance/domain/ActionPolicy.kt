@@ -10,5 +10,7 @@ object ActionPolicy {
         AssistantAction.SMS, AssistantAction.WHATSAPP_SHARE -> !plan.phoneNumber.isNullOrBlank()
         AssistantAction.OPEN_APP -> !plan.appName.isNullOrBlank()
         AssistantAction.OPEN_SETTINGS, AssistantAction.CAMERA, AssistantAction.REMINDER -> true
+        AssistantAction.PHONE_NAVIGATION ->
+            plan.phoneAction?.let(PhoneNavigationActions.supported::contains) == true
     }
 }

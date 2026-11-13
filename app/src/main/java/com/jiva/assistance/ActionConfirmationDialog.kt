@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.jiva.assistance.domain.AssistantAction
+import com.jiva.assistance.domain.ActionPolicy
 import com.jiva.assistance.domain.IntentPlan
 import java.util.Calendar
 
@@ -41,6 +42,7 @@ fun ActionConfirmationDialog(
             AssistantAction.CAMERA -> "Open camera?"
             AssistantAction.OPEN_APP -> "Open app?"
             AssistantAction.REMINDER -> "Create reminder?"
+            AssistantAction.PHONE_NAVIGATION -> "Navigate phone?"
             AssistantAction.CHAT -> "Jiva"
         }) },
         text = {
@@ -53,6 +55,14 @@ fun ActionConfirmationDialog(
                     AssistantAction.CAMERA -> "Open the camera app on this device."
                     AssistantAction.OPEN_APP -> "Open ${plan.appName ?: "the selected app"} if installed."
                     AssistantAction.REMINDER -> "Open the reminder editor to choose text and time."
+                    AssistantAction.PHONE_NAVIGATION -> when (plan.phoneAction) {
+                        "home" -> "Go to the Home screen."
+                        "back" -> "Use Android Back."
+                        "recents" -> "Open the recent apps screen."
+                        "notifications" -> "Open the notification shade, which may show private notifications."
+                        "quick_settings" -> "Open Android Quick Settings."
+                        else -> "Run the requested phone navigation action."
+                    }
                     AssistantAction.CHAT -> plan.reply
                 })
                 if (needsContact) {
@@ -65,7 +75,7 @@ fun ActionConfirmationDialog(
             }
         },
         confirmButton = {
-            Button(enabled = !needsContact || !plan.phoneNumber.isNullOrBlank(), onClick = { onConfirm(plan.copy(message = message)) }) {
+            Button(enabled = ActionPolicy.canDispatch(plan.copy(message = message)), onClick = { onConfirm(plan.copy(message = message)) }) {
                 Text(if (plan.action == AssistantAction.CALL) "Open dialer" else "Continue")
             }
         },

@@ -8,6 +8,14 @@ class LocalCommandParser {
         val text = raw.trim().lowercase(Locale.ROOT)
         if (text.isBlank()) return null
 
+        phoneAction(text)?.let { action ->
+            return IntentPlan(
+                AssistantAction.PHONE_NAVIGATION,
+                "Open the ${action.replace('_', ' ')} panel or screen?",
+                phoneAction = action,
+            )
+        }
+
         return when {
             containsAny(text, "remind", "reminder", "याद दिला", "याद दिलाना", "रिमाइंडर", "recordatorio", "rappel", "提醒", "リマインダー") ->
                 IntentPlan(AssistantAction.REMINDER, "Let's set a reminder. / Reminder ka time set karein.")
@@ -51,6 +59,20 @@ class LocalCommandParser {
     private fun extractMessage(raw: String): String? {
         val match = Regex("(?i)(?:saying|message|text|that|लिखो|लिखना|मैसेज)\\s*[:：]?\\s*[\"'](.+?)[\"']").find(raw)
         return match?.groupValues?.getOrNull(1)?.trim()
+    }
+
+    private fun phoneAction(text: String): String? = when {
+        text in setOf("home", "go home", "home screen") ||
+            containsAny(text, "go to home screen", "होम स्क्रीन", "होम पर जाओ") -> "home"
+        text in setOf("back", "go back") ||
+            containsAny(text, "navigate back", "वापस जाओ", "पीछे जाओ") -> "back"
+        text in setOf("recents", "recent apps", "show recent apps") ||
+            containsAny(text, "हाल के ऐप", "हालिया ऐप") -> "recents"
+        text in setOf("notifications", "show notifications", "open notifications", "notification panel") ||
+            containsAny(text, "notification shade", "notification panel", "सूचना पैनल", "नोटिफिकेशन") -> "notifications"
+        text in setOf("quick settings", "open quick settings", "control center") ||
+            containsAny(text, "क्विक सेटिंग", "कंट्रोल सेंटर") -> "quick_settings"
+        else -> null
     }
 
     private fun containsAny(text: String, vararg phrases: String) = phrases.any { text.contains(it) }
