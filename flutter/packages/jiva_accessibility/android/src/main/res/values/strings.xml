@@ -1,0 +1,3 @@
+<resources>
+    <string name="jiva_accessibility_description">When you explicitly ask, Jiva reads visible screen text or clicks one exact visible control after confirmation. Password fields are excluded. Screen content is not collected in the background.</string>
+</resources>
