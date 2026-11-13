@@ -1,6 +1,9 @@
 package com.jiva.assistance.accessibility
 
 import android.accessibilityservice.AccessibilityService
+import android.app.KeyguardManager
+import android.content.Context
+import com.jiva.assistance.domain.WindowPackagePolicy
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
@@ -36,6 +39,10 @@ class JivaAccessibilityService : AccessibilityService() {
         }
         try {
             ensureJivaEnabled()
+            check(!isPhoneLocked()) { "Unlock the phone before screen assistance." }
+            check(WindowPackagePolicy.isTrustedTarget(eventPackage, root.packageName?.toString())) {
+                "Active screen changed before Jiva could act. Please review and retry."
+            }
             if (containsPassword(root, 0)) {
                 throw IllegalStateException("Screen assistance is blocked while a password field is visible.")
             }
@@ -45,7 +52,7 @@ class JivaAccessibilityService : AccessibilityService() {
             when (request.type) {
                 REQUEST_READ -> report(ScreenAssistResult(request.type, walkVisibleText(root), "Screen read locally; text stays on this device."))
                 REQUEST_CLICK -> {
-                    val clicked = clickVisibleText(request.value.orEmpty())
+                    val clicked = clickVisibleText(request.value.orEmpty(), root)
                     val appLabel = applicationLabel(eventPackage)
                     val result = if (clicked) {
                         val impact = if (VisibleTargetMatcher.isHighImpactLabel(request.value.orEmpty())) {
@@ -58,7 +65,7 @@ class JivaAccessibilityService : AccessibilityService() {
                     report(ScreenAssistResult(request.type, emptyList(), result))
                 }
                 else -> {
-                    val completed = performScreenAction(request.type)
+                    val completed = performScreenAction(request.type, root)
                     report(ScreenAssistResult(request.type, emptyList(), if (completed) "Visible screen action completed." else "No matching screen action was available."))
                 }
             }
@@ -124,9 +131,15 @@ class JivaAccessibilityService : AccessibilityService() {
     /** Exact label, unique clickable ancestor, enabled, current screen only. */
     fun clickVisibleText(label: String): Boolean {
         ensureJivaEnabled()
+        if (isPhoneLocked()) return false
+        val root = rootInActiveWindow ?: return false
+        return clickVisibleText(label, root)
+    }
+
+    private fun clickVisibleText(label: String, root: AccessibilityNodeInfo): Boolean {
+        ensureJivaEnabled()
         val normalized = VisibleTargetMatcher.normalize(label)
         require(normalized.isNotEmpty()) { "Enter the exact visible button text to click." }
-        val root = rootInActiveWindow ?: return false
         if (containsPassword(root, 0) || looksPrivate(root, 0)) return false
 
         val targets = linkedMapOf<String, AccessibilityNodeInfo>()
@@ -150,7 +163,13 @@ class JivaAccessibilityService : AccessibilityService() {
 
     fun performScreenAction(action: String): Boolean {
         ensureJivaEnabled()
+        if (isPhoneLocked()) return false
         val root = rootInActiveWindow ?: return false
+        return performScreenAction(action, root)
+    }
+
+    private fun performScreenAction(action: String, root: AccessibilityNodeInfo): Boolean {
+        ensureJivaEnabled()
         if (containsPassword(root, 0) || looksPrivate(root, 0)) return false
         return when (action) {
             ACTION_BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
@@ -232,7 +251,8 @@ class JivaAccessibilityService : AccessibilityService() {
     }
 
     private fun looksPrivate(node: AccessibilityNodeInfo, depth: Int): Boolean {
-        if (depth > MAX_DEPTH || !node.isVisibleToUser) return false
+        if (depth > MAX_DEPTH) return true
+        if (!node.isVisibleToUser) return false
         val visibleText = listOfNotNull(node.text?.toString(), node.contentDescription?.toString()).joinToString(" ")
         if (VisibleTargetMatcher.looksLikePrivateOrCredentialScreen(visibleText)) return true
         for (index in 0 until node.childCount) {
@@ -255,6 +275,9 @@ class JivaAccessibilityService : AccessibilityService() {
         val safe = value.trim().take(MAX_TEXT_LENGTH)
         if (safe.isNotEmpty() && lines.size < MAX_LINES) lines += safe
     }
+
+    private fun isPhoneLocked(): Boolean =
+        (getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
 
     private fun ensureJivaEnabled() {
         check(getSharedPreferences("jiva_settings", MODE_PRIVATE).getBoolean("assistant_enabled", true)) {
