@@ -734,8 +734,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         state.pendingPlan?.let { plan ->
             ActionConfirmationDialog(plan = plan, onDismiss = vm::dismissPlan, onPickContact = {
                 contactPicker.launch(ContactPicker.pickPhoneIntent())
-            }, onConfirm = { confirmed ->
-                vm.dismissPlan()
+            }, onConfirm = confirm@{ confirmed ->
+                // Stale dialog callbacks and double taps must not repeat a handoff.
+                if (!vm.consumePendingPlan(plan)) return@confirm
                 when (confirmed.action) {
                     AssistantAction.CALL -> launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(confirmed.phoneNumber.orEmpty())}")))
                     AssistantAction.SMS -> launch(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(confirmed.phoneNumber.orEmpty())}")).putExtra("sms_body", confirmed.message.orEmpty()))
