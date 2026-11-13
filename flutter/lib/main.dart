@@ -1083,25 +1083,86 @@ class _AssistantScreenState extends State<AssistantScreen>
     if (_pendingPlan == null) unawaited(_resumeWakeWordManager());
   }
 
-  Future<void> _openKeySettings() async {
-    if (JivaGatewayRuntime.requireGateway) {
-      if (!mounted) return;
+  Future<void> _openSecureAccountSettings() async {
+    if (!mounted) return;
+    final email = TextEditingController();
+    final password = TextEditingController();
+    var signingIn = false;
+    var message = '';
+    try {
       await showDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Secure Jiva account'),
-          content: const Text(
-            'This release uses Firebase Authentication, App Check and '
-            'a protected Gemini gateway. Personal Gemini API keys cannot '
-            'be saved in production. Configure the gateway and sign in '
-            'to your verified Jiva account before using cloud AI.',
+        barrierDismissible: false,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, updateDialog) => AlertDialog(
+            title: const Text('Verified Jiva account'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Production Gemini requires Firebase sign-in, '
+                      'Play Integrity and the secured gateway. Personal Gemini '
+                      'API keys are not accepted in this release.'),
+                  TextField(
+                    controller: email,
+                    enabled: !signingIn,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                  ),
+                  TextField(
+                    controller: password,
+                    enabled: !signingIn,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Password'),
+                  ),
+                  if (message.isNotEmpty) Text(message),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: signingIn ? null : () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: signingIn ? null : () async {
+                  updateDialog(() {
+                    signingIn = true;
+                    message = '';
+                  });
+                  try {
+                    await JivaGatewayRuntime.signIn(email.text, password.text);
+                    password.clear();
+                    if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    if (mounted) _showReply('Verified Jiva account signed in.');
+                  } catch (_) {
+                    if (dialogContext.mounted) {
+                      updateDialog(() {
+                        message = 'Sign-in or email verification failed. '
+                            'Check your Firebase account and gateway setup.';
+                      });
+                    }
+                  } finally {
+                    if (dialogContext.mounted) {
+                      updateDialog(() => signingIn = false);
+                    }
+                  }
+                },
+                child: Text(signingIn ? 'Signing in…' : 'Sign in'),
+              ),
+            ],
           ),
-          actions: [TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          )],
         ),
       );
+    } finally {
+      email.dispose();
+      password.dispose();
+    }
+  }
+
+  Future<void> _openKeySettings() async {
+    if (JivaGatewayRuntime.requireGateway) {
+      await _openSecureAccountSettings();
       return;
     }
     _idleTimer?.cancel();
