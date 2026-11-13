@@ -14,8 +14,8 @@ Implementation **Jiva ke existing Kotlin/Flutter source** par hai, kisi third-pa
 
 ## Implemented change inventory
 
-- Native Kotlin `JivaAccessibilityService`: event package vs active window root package identity check.
-- Flutter Android plugin `JivaAccessibilityService`: same identity check.
+- Native Kotlin `JivaAccessibilityService`: event package AND window ID vs active window root package AND window ID identity check.
+- Flutter Android plugin `JivaAccessibilityService`: same package + window identity check.
 - Both: no screen assistance when Android keyguard locked. New requests blocked; queued request cancelled on subsequent accessibility event if phone locks.
 - Both: event handler validates one `rootInActiveWindow`, then passes that very same node to click/scroll action rather than refetching and potentially acting on another window.
 - Native: private-screen traversal exceeding maximum depth now treated as private (fail-closed) instead of safe.
@@ -26,13 +26,21 @@ Implementation **Jiva ke existing Kotlin/Flutter source** par hai, kisi third-pa
 
 ### E-01: Stale event acts on a different app (HIGH — SOURCE FIX)
 **Risk:** Owner confirmed action for App A. Fast app switching shows App B before handler gets `rootInActiveWindow`. Old code trusted event package and clicked whatever active root it received.
-**Fix:** Reject unless event package and active root package match exactly. No second attempt or silent fallback.
+**Fix:** Reject unless event package and active root package match exactly **AND** their window IDs match. Official Android `AccessibilityRecord.getWindowId()` and `AccessibilityNodeInfo.getWindowId()` identify the owning window, so a different dialog/window of the same package must not inherit a prior approval. No second attempt or silent fallback.
 ```kotlin
 check(WindowPackagePolicy.isTrustedTarget(
-    eventPackage, root.packageName?.toString()
+    eventPackage, root.packageName?.toString(),
+    event.windowId, root.windowId
 )) { "Active screen changed; review and retry." }
 ```
 **Remaining:** Current event package can match the root while UI content changes within the same app; click policy still requires exact unique visible label.
+
+### E-01a: Different window of the same app (HIGH — SOURCE FIX)
+**Risk:** Two activities/dialogs can share the same package. An event from window #10 could trigger a click in active window #11 even though both report the same application package.
+**Fix:** Match both window IDs and deny unknown/negative IDs. Kotlin unit tests cover same-app different-window and invalid IDs. [Android AccessibilityRecord](https://developer.android.com/reference/android/view/accessibility/AccessibilityRecord) and [AccessibilityNodeInfo](https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo) document the two window identifiers.
+```kotlin
+if (event.windowId < 0 || event.windowId != root.windowId) return
+```
 
 ### E-02: Screen changes between privacy check and click (HIGH — SOURCE FIX)
 **Risk:** `onAccessibilityEvent` reviewed one root, but `clickVisibleText` requested another root later. That is a time-of-check/time-of-use race.
