@@ -65,16 +65,19 @@ class JivaGatewayClient {
     if (uri.scheme != 'https' || uri.host != _baseUrl.host) {
       throw StateError('Unsafe gateway URL.');
     }
-    final response = await _client.post(
-      uri,
-      headers: {
+    // Never automatically redirect authenticated requests to another host.
+    final request = http.Request('POST', uri)
+      ..followRedirects = false
+      ..headers.addAll({
         'Authorization': 'Bearer ${session.firebaseIdToken}',
         'X-Firebase-AppCheck': session.appCheckToken,
         'Content-Type': 'application/json',
         'Cache-Control': 'no-store',
-      },
-      body: jsonEncode(payload),
-    ).timeout(const Duration(seconds: 30));
+      })
+      ..body = jsonEncode(payload);
+    final stream = await _client.send(request).timeout(const Duration(seconds: 30));
+    final response = await http.Response.fromStream(stream)
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError('Jiva gateway failed (HTTP ${response.statusCode}).');
     }
