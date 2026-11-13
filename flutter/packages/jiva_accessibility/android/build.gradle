@@ -18,7 +18,7 @@ apply plugin: 'kotlin-android'
 
 android {
     namespace 'com.jiva.accessibility'
-    compileSdk 35
+    compileSdk 36
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
