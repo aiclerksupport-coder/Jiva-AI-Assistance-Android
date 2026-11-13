@@ -32,51 +32,69 @@ fun ActionConfirmationDialog(
 ) {
     var message by remember(plan) { mutableStateOf(plan.message.orEmpty()) }
     val needsContact = plan.action in setOf(AssistantAction.CALL, AssistantAction.SMS, AssistantAction.WHATSAPP_SHARE)
+    val actionName = when (plan.action) {
+        AssistantAction.CALL -> "Open the dialer for ${plan.contactName ?: plan.recipientQuery ?: "the selected contact"}"
+        AssistantAction.SMS -> "Prepare an SMS for ${plan.contactName ?: plan.recipientQuery ?: "the selected contact"}"
+        AssistantAction.WHATSAPP_SHARE -> "Prepare a WhatsApp handoff${plan.contactName?.let { " for $it" }.orEmpty()}"
+        AssistantAction.OPEN_SETTINGS -> "Open Android ${plan.settingsTarget ?: "general"} settings"
+        AssistantAction.CAMERA -> "Open the camera app"
+        AssistantAction.OPEN_APP -> "Open ${plan.appName ?: "the selected app"}"
+        AssistantAction.REMINDER -> "Open the reminder editor"
+        AssistantAction.PHONE_NAVIGATION -> "Run ${plan.phoneAction ?: "the selected navigation"}"
+        AssistantAction.CHAT -> "Reply without a device action"
+    }
+    val riskNote = when (plan.action) {
+        AssistantAction.CALL -> "This only opens the dialer. Verify the number and tap Call yourself."
+        AssistantAction.SMS -> "This prepares a draft in the messaging app. Check the recipient and text; you must tap Send there."
+        AssistantAction.WHATSAPP_SHARE -> "This opens a share handoff. Choose the chat and review it; you must tap Send in WhatsApp."
+        AssistantAction.OPEN_SETTINGS -> "Jiva only opens Settings; you make any protected changes yourself."
+        AssistantAction.OPEN_APP -> "Check that this is the intended installed app before continuing. Jiva will not act inside it without a separate, visible review."
+        AssistantAction.PHONE_NAVIGATION -> "This changes the visible phone screen. Confirm the requested destination before continuing."
+        AssistantAction.CAMERA -> "Jiva opens the camera; you control capture and sharing."
+        AssistantAction.REMINDER -> "Review the reminder details before saving it."
+        AssistantAction.CHAT -> "No phone action will be performed."
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(when (plan.action) {
-            AssistantAction.CALL -> "Confirm call"
-            AssistantAction.SMS -> "Review message"
+            AssistantAction.CALL -> "Review dialer handoff"
+            AssistantAction.SMS -> "Review SMS draft handoff"
             AssistantAction.WHATSAPP_SHARE -> "Review WhatsApp handoff"
-            AssistantAction.OPEN_SETTINGS -> "Open Android settings?"
-            AssistantAction.CAMERA -> "Open camera?"
-            AssistantAction.OPEN_APP -> "Open app?"
-            AssistantAction.REMINDER -> "Create reminder?"
-            AssistantAction.PHONE_NAVIGATION -> "Navigate phone?"
+            AssistantAction.OPEN_SETTINGS -> "Review Settings action"
+            AssistantAction.CAMERA -> "Review camera action"
+            AssistantAction.OPEN_APP -> "Review app launch"
+            AssistantAction.REMINDER -> "Review reminder action"
+            AssistantAction.PHONE_NAVIGATION -> "Review phone navigation"
             AssistantAction.CHAT -> "Jiva"
         }) },
         text = {
             Column {
-                Text(when (plan.action) {
-                    AssistantAction.CALL -> "Jiva opens the system dialer. You must tap Call there."
-                    AssistantAction.SMS -> "Review the SMS in your messaging app and tap Send there."
-                    AssistantAction.WHATSAPP_SHARE -> "Choose the chat and tap Send in WhatsApp. Jiva cannot send silently."
-                    AssistantAction.OPEN_SETTINGS -> "Jiva opens Android settings; you approve and make any protected change there."
-                    AssistantAction.CAMERA -> "Open the camera app on this device."
-                    AssistantAction.OPEN_APP -> "Open ${plan.appName ?: "the selected app"} if installed."
-                    AssistantAction.REMINDER -> "Open the reminder editor to choose text and time."
-                    AssistantAction.PHONE_NAVIGATION -> when (plan.phoneAction) {
-                        "home" -> "Go to the Home screen."
-                        "back" -> "Use Android Back."
-                        "recents" -> "Open the recent apps screen."
-                        "notifications" -> "Open the notification shade, which may show private notifications."
-                        "quick_settings" -> "Open Android Quick Settings."
-                        else -> "Run the requested phone navigation action."
-                    }
-                    AssistantAction.CHAT -> plan.reply
-                })
+                Text("Requested action: $actionName")
+                Text(riskNote, modifier = Modifier.padding(top = 8.dp))
                 if (needsContact) {
-                    TextButton(onClick = onPickContact) { Text(plan.contactName?.let { "Selected: $it · choose again" } ?: "Choose contact") }
+                    TextButton(onClick = onPickContact) {
+                        Text(plan.contactName?.let { "Selected: $it · choose again" } ?: "Choose contact")
+                    }
                     if (plan.contactName != null) Text("${plan.contactName} · ${plan.phoneNumber}")
                 }
                 if (plan.action == AssistantAction.SMS || plan.action == AssistantAction.WHATSAPP_SHARE) {
-                    OutlinedTextField(message, { message = it }, label = { Text("Message draft") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    OutlinedTextField(
+                        value = message,
+                        onValueChange = { message = it },
+                        label = { Text("Review message draft") },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
                 }
             }
         },
         confirmButton = {
             Button(enabled = ActionPolicy.canDispatch(plan.copy(message = message)), onClick = { onConfirm(plan.copy(message = message)) }) {
-                Text(if (plan.action == AssistantAction.CALL) "Open dialer" else "Continue")
+                Text(when (plan.action) {
+                    AssistantAction.CALL -> "Open dialer"
+                    AssistantAction.OPEN_APP -> "Open app"
+                    AssistantAction.SMS, AssistantAction.WHATSAPP_SHARE -> "Review handoff"
+                    else -> "Continue"
+                })
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
