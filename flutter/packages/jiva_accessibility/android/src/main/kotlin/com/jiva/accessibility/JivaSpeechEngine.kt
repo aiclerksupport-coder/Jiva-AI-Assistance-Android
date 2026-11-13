@@ -110,6 +110,8 @@ internal class JivaSpeechEngine(
                             "Enhanced microphone audio was rejected; retrying with standard phone speech recognition.",
                         )
                     } else {
+                        recognizer = null
+                        speechRecognizer.destroy()
                         sendStatus("idle")
                         channel.invokeMethod(
                             "speechError",
@@ -126,6 +128,8 @@ internal class JivaSpeechEngine(
                         ?.firstOrNull()
                         .orEmpty()
                     closeInput()
+                    recognizer = null
+                    speechRecognizer.destroy()
                     sendStatus("idle")
                     if (cancelling) {
                         cancelling = false
