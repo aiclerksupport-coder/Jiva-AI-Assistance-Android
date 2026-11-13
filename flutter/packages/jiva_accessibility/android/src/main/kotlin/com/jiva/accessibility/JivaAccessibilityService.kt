@@ -197,7 +197,7 @@ class JivaAccessibilityService : AccessibilityService() {
             if (term.any { it.code > 127 }) {
                 text.contains(term)
             } else {
-                Regex("(?<![\\p{L}\\p{N}])\${Regex.escape(term)}(?![\\p{L}\\p{N}])")
+                Regex("(?<![\\p{L}\\p{N}])${Regex.escape(term)}(?![\\p{L}\\p{N}])")
                     .containsMatchIn(text)
             }
         }
