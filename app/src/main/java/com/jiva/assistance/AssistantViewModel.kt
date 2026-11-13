@@ -72,6 +72,12 @@ class AssistantViewModel(application: Application) : AndroidViewModel(applicatio
         _state.value = _state.value.copy(pendingPlan = null, isSleeping = false)
         scheduleSleepTimer()
     }
+    /** Claim exactly the displayed pending plan before a user-visible handoff. */
+    fun consumePendingPlan(expected: IntentPlan): Boolean {
+        if (_state.value.pendingPlan != expected) return false
+        dismissPlan()
+        return true
+    }
     fun showReminderEditor() {
         idleSleepJob?.cancel()
         _state.value = _state.value.copy(showReminderEditor = true, isSleeping = false)

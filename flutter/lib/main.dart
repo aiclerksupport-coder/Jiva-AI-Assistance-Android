@@ -81,6 +81,8 @@ class _AssistantScreenState extends State<AssistantScreen>
   String _transcript = '';
   String _reply = "Namaste! I'm Jiva. Speak or type in your language.";
   bool _busy = false;
+  bool _planDialogOpen = false;
+  bool _reminderDialogOpen = false;
   bool _enabled = true;
   bool _userToggledAssistant = false;
   bool _listening = false;
@@ -165,7 +167,7 @@ class _AssistantScreenState extends State<AssistantScreen>
 
   void _initializeWakeForegroundTask() {
     FlutterForegroundTask.init(
-      androidNotificationOptions: const AndroidNotificationOptions(
+      androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'jiva_wake_word',
         channelName: 'Jiva wake-word microphone',
         channelDescription:
@@ -298,19 +300,28 @@ class _AssistantScreenState extends State<AssistantScreen>
   Future<void> _submit([String? value]) async {
     final text = (value ?? _input.text).trim();
     if (text.isEmpty || _busy || !_enabled) return;
+    // Reserve the command synchronously before the first await: voice and taps
+    // can otherwise both enter while the microphone is being paused.
+    setState(() {
+      _busy = true;
+      _sleeping = false;
+      _pendingPlan = null;
+    });
     _idleTimer?.cancel();
     try {
       await _pauseWakeWordManager();
     } catch (error) {
+      if (mounted) setState(() => _busy = false);
       _showReply('Could not pause wake-word microphone: $error');
+      return;
+    }
+    if (!mounted || !_enabled) {
+      if (mounted) setState(() => _busy = false);
       return;
     }
     setState(() {
       _input.clear();
       _transcript = text;
-      _busy = true;
-      _sleeping = false;
-      _pendingPlan = null;
     });
     final local = _parser.parse(text);
     if (local != null) {
@@ -608,7 +619,7 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   void _onWakeWordError(PorcupineException error) {
-    _wakeWordError = error.message;
+    _wakeWordError = error.message ?? 'Unknown wake-word error';
     _wakeWordActive = false;
     unawaited(
       FlutterForegroundTask.updateService(
@@ -1020,6 +1031,7 @@ class _AssistantScreenState extends State<AssistantScreen>
       _showReply('Could not pause wake-word microphone: $error');
       return;
     }
+    if (!mounted) return;
     final controller = TextEditingController();
     final save = await showDialog<bool>(
       context: context,
@@ -1105,7 +1117,7 @@ class _AssistantScreenState extends State<AssistantScreen>
 
   Future<void> _importWakeWordModel(String name) async {
     try {
-      final selection = await FilePicker.platform.pickFiles(
+      final selection = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['ppn'],
         withData: false,
@@ -1150,6 +1162,7 @@ class _AssistantScreenState extends State<AssistantScreen>
       _showReply('Could not pause wake-word microphone: $error');
       return;
     }
+    if (!mounted) return;
     final controller = TextEditingController();
     var dialogMessage = _wakeWordError;
     await showDialog<void>(
@@ -1288,12 +1301,19 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   Future<void> _showPlan(IntentPlan plan) async {
-    if (!_enabled) return;
+    if (!mounted || !_enabled || _planDialogOpen || _busy) return;
+    // Reserve the dialog before async microphone work.
+    _planDialogOpen = true;
     _idleTimer?.cancel();
     try {
       await _pauseWakeWordManager();
     } catch (error) {
+      _planDialogOpen = false;
       _showReply('Could not pause wake-word microphone: $error');
+      return;
+    }
+    if (!mounted || !_enabled) {
+      _planDialogOpen = false;
       return;
     }
     if (mounted) {
@@ -1396,8 +1416,9 @@ class _AssistantScreenState extends State<AssistantScreen>
     number.dispose();
     message.dispose();
     appName.dispose();
+    _planDialogOpen = false;
     if (accepted != null) {
-      await _dispatch(accepted);
+      await _dispatch(accepted, expectedPlan: plan);
     } else if (mounted) {
       setState(() => _pendingPlan = null);
       _resetSleepTimer();
@@ -1443,16 +1464,20 @@ class _AssistantScreenState extends State<AssistantScreen>
         AssistantAction.chat => plan.reply,
       };
 
-  Future<void> _dispatch(IntentPlan plan) async {
-    if (!_enabled) return;
-    _idleTimer?.cancel();
-    await _pauseWakeWordManager();
+  Future<void> _dispatch(IntentPlan plan, {required IntentPlan expectedPlan}) async {
+    // The edited/confirmed plan is a copy, so compare its original dialog
+    // identity instead. Reject callbacks from any stale dialog.
+    if (!mounted || !_enabled || _busy ||
+        !identical(_pendingPlan, expectedPlan)) return;
     setState(() {
       _pendingPlan = null;
       _busy = true;
       _sleeping = false;
     });
+    _idleTimer?.cancel();
     try {
+      await _pauseWakeWordManager();
+      if (!mounted || !_enabled) return;
       switch (plan.action) {
         case AssistantAction.call:
           await _launch(Uri(scheme: 'tel', path: plan.phoneNumber));
@@ -1553,12 +1578,15 @@ class _AssistantScreenState extends State<AssistantScreen>
   }
 
   Future<void> _editReminder() async {
+    if (!mounted || !_enabled || _reminderDialogOpen) return;
+    _reminderDialogOpen = true;
     final wasBusy = _busy;
     _idleTimer?.cancel();
     if (!wasBusy && mounted) setState(() => _busy = true);
     final text = TextEditingController();
     var selected = DateTime.now().add(const Duration(hours: 1));
     var notificationsDisabled = false;
+    var saving = false;
     final reminder = await showDialog<ReminderItem>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -1623,7 +1651,9 @@ class _AssistantScreenState extends State<AssistantScreen>
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () async {
+              onPressed: saving ? null : () async {
+                if (saving) return;
+                updateDialog(() => saving = true);
                 try {
                   if (text.text.trim().isEmpty) {
                     throw ArgumentError('Reminder text cannot be empty.');
@@ -1646,6 +1676,10 @@ class _AssistantScreenState extends State<AssistantScreen>
                   if (dialogContext.mounted) Navigator.pop(dialogContext, result);
                 } catch (error) {
                   _showReply(error.toString());
+                } finally {
+                  if (dialogContext.mounted) {
+                    updateDialog(() => saving = false);
+                  }
                 }
               },
               child: const Text('Schedule'),
@@ -1655,6 +1689,7 @@ class _AssistantScreenState extends State<AssistantScreen>
       ),
     );
     text.dispose();
+    _reminderDialogOpen = false;
     if (reminder != null && mounted) {
       setState(() {
         _reminders.add(reminder);

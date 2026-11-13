@@ -17,7 +17,7 @@ class VisibleTargetMatcherTest {
             "Like" to "पसंद",
             "Send" to "அனுப்பு",
             "Pay" to "ચૂકવો",
-            "Delete" to "மீக்கு",
+            "Delete" to "நீக்கு",
             "Comment" to "মন্তব্য",
             "Share" to "పంచుకోండి",
         )
@@ -25,6 +25,11 @@ class VisibleTargetMatcherTest {
             val candidates = listOf(VisibleTargetMatcher.Candidate(setOf(visibleLabel), "target-$index"))
             assertEquals(requested, VisibleTargetMatcher.Resolution.Unique("target-$index"), VisibleTargetMatcher.resolve(requested, candidates))
         }
+    }
+
+    @Test fun refusesUnknownTamilDeleteLabelRatherThanGuessing() {
+        val candidates = listOf(VisibleTargetMatcher.Candidate(setOf("மீக்கு"), "wrong-label"))
+        assertEquals(VisibleTargetMatcher.Resolution.NotFound, VisibleTargetMatcher.resolve("Delete", candidates))
     }
 
     @Test fun localizedAliasStillRequiresExactWholeLabel() {

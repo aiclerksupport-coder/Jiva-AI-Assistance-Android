@@ -249,6 +249,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         var showVoiceMenu by remember { mutableStateOf(false) }
         var appItems by remember { mutableStateOf(emptyList<Pair<String, Intent>>()) }
         val reminderScheduler = remember { ReminderScheduler(this) }
+        var reminderSavePending by remember { mutableStateOf(false) }
         var greetAfterPermission by remember { mutableStateOf(false) }
         var waitingForWakePause by remember { mutableStateOf(false) }
         var greetAfterWakePause by remember { mutableStateOf(false) }
@@ -280,6 +281,15 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             } catch (error: Exception) {
                 vm.setWakeWordServiceEnabled(false)
                 wakeSetupError = error.message ?: "Could not start wake-word listening."
+            }
+        }
+
+        fun pauseWakeService() {
+            if (vm.wakeWordServiceEnabled()) {
+                startService(
+                    Intent(this@MainActivity, WakeWordService::class.java)
+                        .setAction(WakeWordService.ACTION_PAUSE),
+                )
             }
         }
 
@@ -319,15 +329,6 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             } finally {
                 pendingScreenClick = ""
                 sensitiveClickReviewed = false
-            }
-        }
-
-        fun pauseWakeService() {
-            if (vm.wakeWordServiceEnabled()) {
-                startService(
-                    Intent(this@MainActivity, WakeWordService::class.java)
-                        .setAction(WakeWordService.ACTION_PAUSE),
-                )
             }
         }
 
@@ -734,8 +735,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         state.pendingPlan?.let { plan ->
             ActionConfirmationDialog(plan = plan, onDismiss = vm::dismissPlan, onPickContact = {
                 contactPicker.launch(ContactPicker.pickPhoneIntent())
-            }, onConfirm = { confirmed ->
-                vm.dismissPlan()
+            }, onConfirm = confirm@{ confirmed ->
+                // Stale dialog callbacks and double taps must not repeat a handoff.
+                if (!vm.consumePendingPlan(plan)) return@confirm
                 when (confirmed.action) {
                     AssistantAction.CALL -> launch(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(confirmed.phoneNumber.orEmpty())}")))
                     AssistantAction.SMS -> launch(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${Uri.encode(confirmed.phoneNumber.orEmpty())}")).putExtra("sms_body", confirmed.message.orEmpty()))
@@ -957,10 +959,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }, confirmButton = { TextButton(onClick = { showApps = false }) { Text("Close") } })
 
         if (state.showReminderEditor) ReminderEditorDialog(context = this, onDismiss = vm::closeReminderEditor, onSave = { text, time ->
-            reminderScheduler.schedule(text, time).onSuccess {
-                vm.setReminders(reminderScheduler.list()); vm.closeReminderEditor(); vm.showReply("Reminder scheduled: $text")
-                if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }.onFailure { vm.showReply(it.message ?: "Couldn't schedule reminder.") }
+            if (!reminderSavePending) {
+                reminderSavePending = true
+                try {
+                    reminderScheduler.schedule(text, time).onSuccess {
+                        vm.setReminders(reminderScheduler.list()); vm.closeReminderEditor(); vm.showReply("Reminder scheduled: $text")
+                        if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }.onFailure { vm.showReply(it.message ?: "Couldn't schedule reminder.") }
+                } finally {
+                    reminderSavePending = false
+                }
+            }
         })
 
         LaunchedEffect(Unit) {
@@ -1010,7 +1019,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private fun settingsIntent(target: String?): Intent = when (target) {
         "wifi" -> Intent(Settings.Panel.ACTION_WIFI)
-        "bluetooth" -> Intent(Settings.Panel.ACTION_BLUETOOTH)
+        "bluetooth" -> Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
         "display" -> Intent(Settings.ACTION_DISPLAY_SETTINGS)
         "sound" -> Intent(Settings.ACTION_SOUND_SETTINGS)
         else -> Intent(Settings.ACTION_SETTINGS)

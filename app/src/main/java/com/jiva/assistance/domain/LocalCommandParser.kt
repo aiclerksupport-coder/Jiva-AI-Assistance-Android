@@ -28,7 +28,8 @@ class LocalCommandParser {
                     message = extractMessage(raw),
                 )
 
-            containsAny(text, "call", "phone", "कॉल", "फोन", "कॉल करो", "llama", "llamar", "anrufen", "打电话") ->
+            containsAny(text, "कॉल", "फोन", "llama", "llamar", "anrufen", "打电话") ||
+                containsWholeWord(text, "call", "phone") ->
                 IntentPlan(AssistantAction.CALL, "Choose a contact. Jiva will open the dialer for your review.", recipientQuery = extractRecipient(raw))
 
             containsAny(text, "message", "sms", "मैसेज", "संदेश", "भेजो", "mensaje", "短信", "send text") ->
@@ -60,17 +61,17 @@ class LocalCommandParser {
         if (trimmed.isEmpty()) return null
 
         val prefix = Regex(
-            "^(?i)(?:please\\s+|जरा\\s+|कृपया\\s+)?(?:open|launch|start|run|खोलो|खोलिए|खोलें|खोल|चलाओ|चला\\s*दो|चालू\\s*करो|शुरू\\s*करो|उघडा|उघड|चालवा|ખોલો|ચાલુ\\s*કરો|ચાલાવો|খোলো|খুলুন|চালাও|চালু\\s*করো|খোলক|চলাও|திற|திறக்கவும்|இயக்கு|తెరువు|తెరవండి|నడుపు|ತೆರೆ|ತೆರೆಯಿರಿ|ಚಲಾಯಿಸು|തുറക്കൂ|തുറക്കുക|പ്രവർത്തിപ്പിക്കുക|ਖੋਲ੍ਹੋ|ਚਲਾਓ|کھولو|چلاؤ|کھولیں|چلائیں|ଖୋଲ|ଖୋଲନ୍ତୁ|ଚଲାଅ|खोलो|चलाओ|चलाइए|चलाइये|चलवा|చలావో|چلاؤ)\\s+(?:the\\s+|app\\s+)?",
+            "^(?i)(?:please\\s+|जरा\\s+|कृपया\\s+)?(?:open|launch|start|run|kholo|khol|chalao|chalu\\s+karo|खोलो|खोलिए|खोलें|खोल|चलाओ|चला\\s*दो|चालू\\s*करो|शुरू\\s*करो|उघडा|उघड|चालवा|ખોલો|ચાલુ\\s*કરો|ચાલાવો|খোলো|খুলুন|চালাও|চালু\\s*করো|খোলক|চলাও|திற|திறக்கவும்|இயக்கு|తెరువు|తెరవండి|నడుపు|ತೆರೆ|ತೆರೆಯಿರಿ|ಚಲಾಯಿಸು|തുറക്കൂ|തുറക്കുക|പ്രവർത്തിപ്പിക്കുക|ਖੋਲ੍ਹੋ|ਚਲਾਓ|کھولو|چلاؤ|کھولیں|چلائیں|ଖୋଲ|ଖୋଲନ୍ତୁ|ଚଲାଅ|खोलो|चलाओ|चलाइए|चलाइये|चलवा|చలావో|چلاؤ)\\s+(?:the\\s+|app\\s+)?",
         )
         val suffix = Regex(
-            "(?i)\\s+(?:app\\s+)?(?:please\\s+)?(?:open|launch|start|run|खोलो|खोलिए|खोलें|खोल|चलाओ|चला\\s*दो|चालू\\s*करो|शुरू\\s*करो|उघडा|उघड|चालवा|ખોલો|ચાલુ\\s*કરો|ચાલાવો|খোলো|খুলুন|চালাও|চালু\\s*করো|খোলক|চলাও|திற|திறக்கவும்|இயக்கு|తెరువు|తెరవండి|నడుపు|ತೆರೆ|ತೆರೆಯಿರಿ|ಚಲಾಯಿಸು|തുറക്കൂ|തുറക്കുക|പ്രവർത്തിപ്പിക്കുക|ਖੋਲ੍ਹੋ|ਚਲਾਓ|کھولو|چلاؤ|کھولیں|چلائیں|ଖୋଲ|ଖୋଲନ୍ତୁ|ଚଲାଅ|खोलो|चलाओ|चलाइए|चलाइये|चलवा|చలావో|چلاؤ)(?:\\s+(?:please|कृपया))?$",
+            "(?i)\\s+(?:app\\s+)?(?:please\\s+)?(?:open|launch|start|run|kholo|khol|chalao|chalu\\s+karo|खोलो|खोलिए|खोलें|खोल|चलाओ|चला\\s*दो|चालू\\s*करो|शुरू\\s*करो|उघडा|उघड|चालवा|ખોલો|ચાલુ\\s*કરો|ચાલાવો|খোলো|খুলুন|চালাও|চালু\\s*করো|খোলক|চলাও|திற|திறக்கவும்|இயக்கு|తెరువు|తెరవండి|నడుపు|ತೆರೆ|ತೆರೆಯಿರಿ|ಚಲಾಯಿಸು|തുറക്കൂ|തുറക്കുക|പ്രവർത്തിപ്പിക്കുക|ਖੋਲ੍ਹੋ|ਚਲਾਓ|کھولو|چلاؤ|کھولیں|چلائیں|ଖୋଲ|ଖୋଲନ୍ତୁ|ଚଲାଅ|खोलो|चलाओ|चलाइए|चलाइये|चलवा|చలావో|چلاؤ)(?:\\s+(?:please|कृपया))?$",
         )
 
         val app = when {
             prefix.containsMatchIn(trimmed) -> trimmed.replaceFirst(prefix, "").trim()
             suffix.containsMatchIn(trimmed) -> trimmed.replace(suffix, "").trim()
             else -> return null
-        }.replace(Regex("(?i)\\s+(?:app|application)$"), "").trim().trim('"', '\'')
+        }.trim().trim('"', '\'')
 
         return app.takeIf { it.isNotBlank() && it.length <= 100 }
     }
@@ -78,7 +79,10 @@ class LocalCommandParser {
     /** Convert common Indian-script names to the English launcher labels used by many installed apps. */
     private fun canonicalAppName(name: String): String {
         val key = name.trim().lowercase(Locale.ROOT).replace(Regex("[\\s._-]+"), "")
-        return APP_ALIASES[key] ?: name.trim()
+        // Strip generic "app/application" only for known aliases. Keep it in
+        // unknown installed-app names such as "My Local Bank App".
+        val withoutAppSuffix = key.replace(Regex("(?:app|application)$"), "")
+        return APP_ALIASES[key] ?: APP_ALIASES[withoutAppSuffix] ?: name.trim()
     }
 
     private fun extractRecipient(raw: String): String? {
@@ -105,6 +109,13 @@ class LocalCommandParser {
         else -> null
     }
 
+    /** English verbs must be standalone: "Local" must never trigger "call". */
+    private fun containsWholeWord(text: String, vararg words: String): Boolean =
+        words.any { word ->
+            Regex("(?<![\\p{L}\\p{N}])${Regex.escape(word)}(?![\\p{L}\\p{N}])")
+                .containsMatchIn(text)
+        }
+
     private fun containsAny(text: String, vararg phrases: String) = phrases.any { text.contains(it) }
 
     private companion object {
@@ -124,7 +135,7 @@ class LocalCommandParser {
             "ক্রোম" to "Chrome", "ਕ੍ਰੋਮ" to "Chrome", "کروم" to "Chrome",
             "gmail" to "Gmail", "जीमेल" to "Gmail", "જીમેલ" to "Gmail", "ஜிமெயில்" to "Gmail", "జీమెయిల్" to "Gmail",
             "জিমেইল" to "Gmail", "ਜੀਮੇਲ" to "Gmail", "جی میل" to "Gmail",
-            "google maps" to "Maps", "maps" to "Maps", "गूगल मैप्स" to "Maps", "मैप्स" to "Maps", "મેપ્સ" to "Maps",
+            "googlemaps" to "Maps", "maps" to "Maps", "गूगल मैप्स" to "Maps", "मैप्स" to "Maps", "મેપ્સ" to "Maps",
             "மேப்ஸ்" to "Maps", "మ్యాప్స్" to "Maps", "ম্যাপস" to "Maps", "ਮੈਪਸ" to "Maps", "گوگل میپس" to "Maps",
         )
     }

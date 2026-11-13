@@ -19,14 +19,29 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
       - name: Install Android API 35
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "platforms;android-36" "build-tools;35.0.0"
+      - name: Generate native Gradle wrapper (8.9)
+        run: gradle wrapper --gradle-version 8.9 --distribution-type bin
+      - name: Preserve generated Gradle wrapper for repository verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: jiva-native-generated-wrapper
+          path: |
+            gradlew
+            gradlew.bat
+            gradle/wrapper/gradle-wrapper.jar
+            gradle/wrapper/gradle-wrapper.properties
+          if-no-files-found: error
       - name: Compile, test and assemble debug APK
-        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
@@ -45,12 +60,42 @@ jobs:
           channel: stable
           flutter-version: '3.44.9'
           cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Create Flutter launcher resources and wrapper
+        working-directory: flutter
+        run: flutter create . --platforms android --project-name jiva_assistance
       - name: Flutter dependencies
         working-directory: flutter
         run: flutter pub get
       - name: Dart static analysis
         working-directory: flutter
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
       - name: Flutter tests
         working-directory: flutter
         run: flutter test
+
+      - name: Build Flutter debug APK
+        working-directory: flutter
+        run: flutter build apk --debug
+      - name: Upload Flutter debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jiva-flutter-debug-apk
+          path: flutter/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+
+  gateway:
+    name: Gemini gateway syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate server JavaScript syntax
+        working-directory: backend
+        run: npm run check

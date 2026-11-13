@@ -1,0 +1,17 @@
+{
+  "name": "jiva-gemini-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs"
+  },
+  "dependencies": {
+    "@google/genai": "^1.31.0",
+    "firebase-admin": "^13.0.0"
+  }
+}
