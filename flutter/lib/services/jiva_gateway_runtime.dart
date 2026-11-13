@@ -58,7 +58,7 @@ class JivaGatewayRuntime {
       baseUrl: url,
       tokens: () async {
         final user = FirebaseAuth.instance.currentUser;
-        if (user == null || user.isAnonymous) {
+        if (user == null || user.isAnonymous || !user.emailVerified) {
           throw StateError('Sign in to a verified Jiva account first.');
         }
         final idToken = await user.getIdToken();
@@ -73,5 +73,24 @@ class JivaGatewayRuntime {
         );
       },
     );
+  }
+
+  static Future<void> signIn(String email, String password) async {
+    if (email.trim().isEmpty || password.isEmpty) {
+      throw ArgumentError('Email and password are required.');
+    }
+    await client;
+    final result = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final user = result.user;
+    if (user == null || user.isAnonymous) {
+      throw StateError('A verified Jiva account is required.');
+    }
+    if (!user.emailVerified) {
+      await user.sendEmailVerification();
+      throw StateError('Verify your email, then sign in again.');
+    }
   }
 }
