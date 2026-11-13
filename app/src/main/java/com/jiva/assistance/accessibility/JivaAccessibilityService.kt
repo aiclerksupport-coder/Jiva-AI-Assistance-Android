@@ -46,7 +46,9 @@ class JivaAccessibilityService : AccessibilityService() {
         try {
             ensureJivaEnabled()
             check(!isPhoneLocked()) { "Unlock the phone before screen assistance." }
-            check(WindowPackagePolicy.isTrustedTarget(eventPackage, root.packageName?.toString())) {
+            check(WindowPackagePolicy.isTrustedTarget(
+                eventPackage, root.packageName?.toString(), event.windowId, root.windowId,
+            )) {
                 "Active screen changed before Jiva could act. Please review and retry."
             }
             if (containsPassword(root, 0)) {
