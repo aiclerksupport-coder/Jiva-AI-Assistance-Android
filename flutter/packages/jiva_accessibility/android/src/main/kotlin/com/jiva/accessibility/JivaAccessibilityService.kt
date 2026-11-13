@@ -295,9 +295,10 @@ class JivaAccessibilityService : AccessibilityService() {
         // Curated denylist; intentionally conservative for private/account screens.
         private val PRIVATE_SCREEN_TERMS = listOf(
             "password", "passcode", "otp", "verification code", "pin code", "enter pin",
+            "login", "log in", "sign in", "payment", "pay now", "checkout",
             "bank account", "banking", "net banking", "card number", "cvv", "cvc",
             "upi pin", "payment pin", "account number", "account recovery",
-            "पासवर्ड", "ओटीपी", "यूपीआई पिन", "बैंक खाता", "खाता नंबर",
+            "पासवर्ड", "ओटीपी", "लॉगिन", "भुगतान", "यूपीआई पिन", "बैंक खाता", "खाता नंबर",
             "પાસવર્ડ", "ઓટીપી", "બેંક ખાતું", "યુપીઆઈ પિન",
             "கடவுச்சொல்", "வங்கி கணக்கு", "ஒரு முறை கடவுச்சொல்",
             "పాస్‌వర్డ్", "బ్యాంక్ ఖాతా", "ఓటిపి",
