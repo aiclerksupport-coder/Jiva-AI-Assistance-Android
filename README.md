@@ -1,32 +1,29 @@
-# Jiva Android — build, test, install
+# Jiva AI Assistance — open-source use and warnings
 
-Jiva is an Android assistant MVP with a Material 3 dashboard, voice/typed input, a deterministic local command parser, optional user-provided Gemini integration, contact-picker based call/message handoffs, app launch, settings panels, and local reminders.
+Jiva is an experimental Android assistant MVP. It is not unrestricted phone-control software, and it is not a safety-critical service. Read [DISCLAIMER.md](DISCLAIMER.md), [TERMS_OF_USE.md](TERMS_OF_USE.md), [SECURITY.md](SECURITY.md), and [LICENSE](LICENSE) before building or using it.
 
-## Build and install
+## Responsibility and limitations
 
-1. Install Android Studio and Android SDK Platform 35.
-2. Open this repository in Android Studio and allow Gradle sync.
-3. Connect an Android phone with USB debugging enabled (or start an emulator).
-4. Select the `app` run configuration and press **Run** to build/install the debug app.
-5. For a debug APK, use **Build > Build Bundle(s) / APK(s) > Build APK(s)**. After a successful build, Android Studio writes it under `app/build/outputs/apk/debug/`. Install using Android Studio or `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+You decide whether to download, build, install, modify, or distribute Jiva. Review the code and permissions, verify AI output and every action, and follow applicable laws and third-party terms. Calls/messages are handed off for your review; Android/device providers can restrict or prevent actions. Reminders and language recognition are not guaranteed. Do not rely on Jiva for emergencies or safety-critical/time-critical work. Users remain responsible for their use, subject to rights/liability that cannot legally be waived.
 
-No APK has been built or tested in this GitHub editing environment. The repository has unit and instrumentation test sources, but run them locally before trusting a build:
+## Privacy and Gemini
 
-```bash
-./gradlew testDebugUnitTest
-./gradlew connectedDebugAndroidTest
-```
+Gemini is optional. If you enter your own key, prompts are sent to Google for processing and may consume your account quota or incur charges. Keep the key private; local encryption cannot protect it from every compromised-device attack. Review Google's current terms and privacy documentation. Do not include sensitive information unless you accept the provider's data handling. Speech providers may process voice input according to their own settings and policies.
 
-The second command requires an emulator/device. No Gradle wrapper is currently included; if `./gradlew` is missing, create/download the wrapper from Android Studio's Gradle tooling or run the corresponding Gradle tasks from Android Studio.
+## Download/build/use
 
-## Screen flow
+1. Review the source, dependencies, permissions, and legal notices.
+2. Build from a commit/tag you trust using Android Studio and the Android SDK; inspect the resulting APK before installing.
+3. Grant only the permissions you choose. Revoke them from Android settings when desired.
+4. Review every proposed call, message, setting, reminder, app launch, and AI-generated response.
+5. For Gemini, add your own API key in the app; the maintainers do not provide a key or cover API charges.
 
-1. Launch Jiva dashboard. Type a request or tap **Speak**; microphone access is requested only when needed.
-2. Local supported commands generate an action preview. Unknown language/phrasing falls back to Gemini only if the user configured their own API key; otherwise Jiva says it did not understand.
-3. Call/message commands open a contact picker. The selected contact is displayed in a review dialog; cancel does nothing.
-4. Approve an action to hand off to the Android dialer, SMS composer, WhatsApp/share chooser, app launcher, camera, or Settings. The user completes calls/sends messages and protected settings changes.
-5. Reminder opens a date/time editor, schedules a local notification, and asks for notification permission where applicable.
+The source is licensed under MIT; the license's terms and disclaimer govern the software. The additional terms/disclaimer explain the project's intended use but cannot override mandatory law or create blanket immunity for any person. Seek legal advice before redistributing Jiva commercially or publishing it in an app store.
 
-## Test scope and limitations
+## Build and test
 
-`LocalCommandParserTest` checks several local intent decisions and that unknown text falls through. `AssistantScreenTest` is a basic Compose device/emulator smoke test for dashboard controls. These tests are added but have **not** been run here. Speech-language coverage depends on the phone's recognition/TTS provider. Android does not permit a normal app to silently control every phone feature. Gemini user text is sent to Google when Gemini is enabled; client-side API keys can be exposed on compromised devices despite encryption at rest.
+Open in Android Studio with Android SDK Platform 35, sync Gradle, then run the `app` configuration. For test sources, run `testDebugUnitTest` and `connectedDebugAndroidTest` on a device/emulator. This repo has not necessarily been built or tested for every Android version, device, language, or fork.
+
+## Community
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request expectations and [SECURITY.md](SECURITY.md) for private vulnerability reporting guidance.
