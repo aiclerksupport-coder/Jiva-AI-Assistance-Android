@@ -20,6 +20,12 @@ class JivaAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val request = pendingRequest ?: return
+        if (isPhoneLocked()) {
+            pendingRequest = null
+            handler.removeCallbacksAndMessages(null)
+            report(request.type, emptyList(), "Phone locked; screen action cancelled.")
+            return
+        }
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val eventPackage = event.packageName?.toString().orEmpty()
         if (eventPackage.isBlank() || eventPackage == packageName ||
@@ -109,6 +115,7 @@ class JivaAccessibilityService : AccessibilityService() {
 
     private fun queueRequest(request: PendingRequest) {
         ensureJivaEnabled()
+        check(!isPhoneLocked()) { "Unlock the phone before requesting screen assistance." }
         // A second tap cannot silently replace an earlier confirmed action.
         // One user-reviewed request owns the queue until result or timeout.
         check(pendingRequest == null) {
@@ -181,6 +188,7 @@ class JivaAccessibilityService : AccessibilityService() {
 
     fun performPhoneNavigation(action: String): Boolean {
         ensureJivaEnabled()
+        if (isPhoneLocked()) return false
         return when (action) {
             PHONE_HOME -> performGlobalAction(GLOBAL_ACTION_HOME)
             PHONE_BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
