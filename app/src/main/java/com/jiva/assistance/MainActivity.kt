@@ -92,6 +92,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private fun JivaApp(vm: AssistantViewModel = viewModel()) {
         val state by vm.state.collectAsState()
         var showKey by remember { mutableStateOf(false) }
+        var showLegal by remember { mutableStateOf(false) }
         var keyText by remember { mutableStateOf("") }
         var appQuery by remember { mutableStateOf("") }
         var showApps by remember { mutableStateOf(false) }
@@ -108,9 +109,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             val uri = result.data?.data ?: return@rememberLauncherForActivityResult
             val plan = vm.state.value.pendingPlan ?: return@rememberLauncherForActivityResult
             val contact = ContactPicker.readSelectedPhone(contentResolver, uri)
-            if (contact != null) {
-                vm.updatePlan(plan.copy(contactName = contact.displayName, phoneNumber = contact.phoneNumber))
-            } else vm.showReply("Couldn't read a phone number from that contact. Choose another contact.")
+            if (contact != null) vm.updatePlan(plan.copy(contactName = contact.displayName, phoneNumber = contact.phoneNumber))
+            else vm.showReply("Couldn't read a phone number from that contact. Choose another contact.")
         }
 
         MaterialTheme {
@@ -154,9 +154,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                     if (state.reminders.isEmpty()) Text("No reminders scheduled.")
                     state.reminders.forEach { Text("• ${it.text} — ${java.text.DateFormat.getDateTimeInstance().format(it.triggerAtMillis)}") }
                     Text("Speech languages depend on your phone's speech service. Gemini requests send text to Google using your key. Sensitive actions require your review.", style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { showLegal = true }) { Text("Usage, privacy & legal notice") }
                 }
             }
         }
+
+        FirstRunNotice()
+        if (showLegal) LegalNoticeDialog(onDismiss = { showLegal = false })
 
         state.pendingPlan?.let { plan ->
             ActionConfirmationDialog(plan = plan, onDismiss = vm::dismissPlan, onPickContact = {
