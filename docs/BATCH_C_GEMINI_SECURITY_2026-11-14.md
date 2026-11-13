@@ -107,7 +107,7 @@ npm test
 
 ### C-11 — SDK/runtime compatibility (HIGH)
 **Risk:** FirebaseAuth Kotlin metadata old KGP ke saath compile fail, Flutter App Check 0.5 changed provider signature.
-**Implemented:** Kotlin KGP 2.3.20 aur Firebase BOM 34.19.0; Flutter SDK `providerAndroid: const AndroidPlayIntegrityProvider()`.
+**Implemented:** Native Kotlin KGP 2.3.20 + Firebase BOM 34.19.0; Flutter Android Kotlin KGP 2.4.20 (FlutterFire Firebase Auth 25 metadata ke liye); Flutter App Check `providerAndroid: const AndroidPlayIntegrityProvider()`.
 **Remaining:** final CI success, full release minification and Android 13–16 device matrix.
 
 ### C-12 — Real-world device & credential tests (HIGH open)
