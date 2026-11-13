@@ -13,13 +13,13 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import ai.picovoice.porcupine.PorcupineManager
 import com.jiva.assistance.data.ApiKeyStore
+import com.jiva.assistance.domain.WakeHandoffGate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicBoolean
 
 class WakeWordService : Service() {
     private val store by lazy { ApiKeyStore(this) }
@@ -29,7 +29,7 @@ class WakeWordService : Service() {
     private var porcupineManager: PorcupineManager? = null
     private var managerStarted = false
     // Picovoice may deliver overlapping detections before stop() completes.
-    private val wakeHandoffPending = AtomicBoolean(false)
+    private val wakeHandoff = WakeHandoffGate()
 
     override fun onCreate() {
         super.onCreate()
@@ -39,6 +39,7 @@ class WakeWordService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                wakeHandoff.disarm()
                 store.setWakeServiceEnabled(false)
                 stopSelf()
                 return START_NOT_STICKY
@@ -94,7 +95,7 @@ class WakeWordService : Service() {
                 // Re-arm only after the microphone successfully starts again.
                 manager.start()
                 managerStarted = true
-                wakeHandoffPending.set(false)
+                wakeHandoff.arm()
             }
             updateNotification("Listening for Jiva or Giva")
         } catch (error: Exception) {
@@ -121,7 +122,7 @@ class WakeWordService : Service() {
     }
 
     private fun onWakeWordDetected(keywordIndex: Int) {
-        if (!wakeHandoffPending.compareAndSet(false, true)) return
+        if (!wakeHandoff.claim()) return
         serviceScope.launch {
             try {
                 stopWakeWordManager()
