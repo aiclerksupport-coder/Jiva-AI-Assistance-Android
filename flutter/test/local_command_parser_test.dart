@@ -71,6 +71,30 @@ void main() {
     expect(parser.parse('I need help with homework'), isNull);
   });
 
+
+  test('phone handoff policy rejects USSD and accepts share drafts', () {
+    expect(ActionPolicy.canDispatch(const IntentPlan(
+      action: AssistantAction.call,
+      reply: 'dial',
+      phoneNumber: '*21*123#',
+    )), isFalse);
+    expect(ActionPolicy.canDispatch(const IntentPlan(
+      action: AssistantAction.sms,
+      reply: 'message',
+      phoneNumber: '+91 98765 43210',
+    )), isTrue);
+    expect(ActionPolicy.canDispatch(const IntentPlan(
+      action: AssistantAction.whatsappShare,
+      reply: 'share',
+      message: 'Namaste bhidu',
+    )), isTrue);
+    expect(ActionPolicy.canDispatch(const IntentPlan(
+      action: AssistantAction.whatsappShare,
+      reply: 'share',
+      message: '  ',
+    )), isFalse);
+  });
+
   test('maps Gemini action names to safe local enum values', () {
     expect(actionFromName('OPEN_APP'), AssistantAction.openApp);
     expect(actionFromName('WHATSAPP_SHARE'), AssistantAction.whatsappShare);
