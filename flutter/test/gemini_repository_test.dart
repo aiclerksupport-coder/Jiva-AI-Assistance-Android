@@ -47,41 +47,47 @@ void main() {
     repository.close();
   });
 
-  test('retries transient server errors and rejects non-retryable errors', () async {
-    var requests = 0;
-    final repository = GeminiRepository(
-      client: MockClient((request) async {
-        requests++;
-        if (requests == 1) return http.Response('temporarily unavailable', 503);
-        final supportsLive =
-            request.url.path.endsWith(GeminiRepository.liveModel);
-        return http.Response(
-          jsonEncode({
-            'supportedGenerationMethods': [
-              supportsLive ? 'bidiGenerateContent' : 'generateContent',
-            ],
-          }),
-          200,
-        );
-      }),
-    );
+  test(
+    'retries transient server errors and rejects non-retryable errors',
+    () async {
+      var requests = 0;
+      final repository = GeminiRepository(
+        client: MockClient((request) async {
+          requests++;
+          if (requests == 1) {
+            return http.Response('temporarily unavailable', 503);
+          }
+          final supportsLive = request.url.path.endsWith(
+            GeminiRepository.liveModel,
+          );
+          return http.Response(
+            jsonEncode({
+              'supportedGenerationMethods': [
+                supportsLive ? 'bidiGenerateContent' : 'generateContent',
+              ],
+            }),
+            200,
+          );
+        }),
+      );
 
-    await repository.verifyApiKey('test-key');
-    expect(requests, 3);
-    repository.close();
+      await repository.verifyApiKey('test-key');
+      expect(requests, 3);
+      repository.close();
 
-    var rejectedRequests = 0;
-    final rejected = GeminiRepository(
-      client: MockClient((_) async {
-        rejectedRequests++;
-        return http.Response('unauthorized', 401);
-      }),
-    );
-    await expectLater(
-      rejected.verifyApiKey('bad-key'),
-      throwsA(isA<GeminiApiException>()),
-    );
-    expect(rejectedRequests, 1);
-    rejected.close();
-  });
+      var rejectedRequests = 0;
+      final rejected = GeminiRepository(
+        client: MockClient((_) async {
+          rejectedRequests++;
+          return http.Response('unauthorized', 401);
+        }),
+      );
+      await expectLater(
+        rejected.verifyApiKey('bad-key'),
+        throwsA(isA<GeminiApiException>()),
+      );
+      expect(rejectedRequests, 1);
+      rejected.close();
+    },
+  );
 }

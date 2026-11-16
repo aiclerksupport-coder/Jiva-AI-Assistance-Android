@@ -63,15 +63,11 @@ class JivaSpeech {
     _channel.setMethodCallHandler(null);
   }
 
-  static Future<bool> start({
-    required bool patientListening,
-  }) async =>
-      await _channel.invokeMethod<bool>(
-        'startListening',
-        {'patientListening': patientListening},
-      ) ??
+  static Future<bool> start({required bool patientListening}) async =>
+      await _channel.invokeMethod<bool>('startListening', {
+        'patientListening': patientListening,
+      }) ??
       false;
 
-  static Future<void> stop() =>
-      _channel.invokeMethod<void>('stopListening');
+  static Future<void> stop() => _channel.invokeMethod<void>('stopListening');
 }

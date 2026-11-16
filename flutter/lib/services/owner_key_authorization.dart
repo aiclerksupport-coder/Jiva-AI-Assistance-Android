@@ -4,7 +4,7 @@ import 'package:local_auth/local_auth.dart';
 /// PIN, pattern and password are handled ONLY by the operating system.
 class OwnerKeyAuthorization {
   OwnerKeyAuthorization({Future<bool> Function(String action)? authenticate})
-      : _authenticate = authenticate ?? _systemAuthenticate;
+    : _authenticate = authenticate ?? _systemAuthenticate;
 
   final Future<bool> Function(String action) _authenticate;
   bool _inProgress = false;
@@ -29,7 +29,8 @@ class OwnerKeyAuthorization {
     final auth = LocalAuthentication();
     if (!await auth.isDeviceSupported()) return false;
     return auth.authenticate(
-      localizedReason: 'Confirm with your phone fingerprint or screen-lock '
+      localizedReason:
+          'Confirm with your phone fingerprint or screen-lock '
           'PIN/password to $action your Gemini API key.',
       biometricOnly: false,
       sensitiveTransaction: true,

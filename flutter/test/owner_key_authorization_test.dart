@@ -20,19 +20,23 @@ void main() {
   test('device refusal and platform error fail closed', () async {
     final refused = OwnerKeyAuthorization(authenticate: (_) async => false);
     expect(await refused.confirm('save'), isFalse);
-    final error = OwnerKeyAuthorization(authenticate: (_) async {
-      throw StateError('Android biometric prompt unavailable');
-    });
+    final error = OwnerKeyAuthorization(
+      authenticate: (_) async {
+        throw StateError('Android biometric prompt unavailable');
+      },
+    );
     expect(await error.confirm('remove'), isFalse);
   });
 
   test('simultaneous requests never share one approval', () async {
     final pending = Completer<bool>();
     var invocations = 0;
-    final guard = OwnerKeyAuthorization(authenticate: (_) {
-      invocations++;
-      return pending.future;
-    });
+    final guard = OwnerKeyAuthorization(
+      authenticate: (_) {
+        invocations++;
+        return pending.future;
+      },
+    );
     final first = guard.confirm('save');
     expect(await guard.confirm('remove'), isFalse);
     pending.complete(true);

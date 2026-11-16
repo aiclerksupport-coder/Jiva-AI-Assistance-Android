@@ -69,170 +69,178 @@ class GeminiLiveClient {
     }
     final voice = voicePresetFor(voiceName).name;
     final generation = _requestGeneration;
-    return GeminiRetryPolicy.execute(() async {
-      if (_requestGeneration != generation) {
-        throw StateError('Gemini request cancelled.');
-      }
-      final channel = WebSocketChannel.connect(
-        Uri(
-          scheme: 'wss',
-          host: 'generativelanguage.googleapis.com',
-          path: '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent',
-          queryParameters: {'key': apiKey},
-        ),
-      );
-      _activeChannel = channel;
-      if (_requestGeneration != generation) {
-        _activeChannel = null;
-        await channel.sink.close();
-        throw StateError('Gemini request cancelled.');
-      }
-      final reply = Completer<GeminiLiveReply>();
-      final audio = BytesBuilder(copy: false);
-      final transcript = StringBuffer();
-      var sentText = false;
-      final subscription = channel.stream.listen(
-        (event) {
-          try {
-            if (event is! String) {
-              throw const FormatException('Gemini Live returned an unsupported frame.');
-            }
-            final message = jsonDecode(event) as Map<String, dynamic>;
-            if (message.containsKey('setupComplete') && !sentText) {
-              sentText = true;
-              channel.sink.add(
-                jsonEncode({
-                  'clientContent': {
-                    'turns': [
-                      {
-                        'role': 'user',
-                        'parts': [
-                          {'text': text}
-                        ],
-                      }
-                    ],
-                    'turnComplete': true,
-                  }
-                }),
-              );
-            }
-            final error = message['error'];
-            if (error is Map<String, dynamic>) {
-              final statusCode = error['code'];
-              if (statusCode is int) {
-                throw GeminiApiException(
-                  statusCode,
+    return GeminiRetryPolicy.execute(
+      () async {
+        if (_requestGeneration != generation) {
+          throw StateError('Gemini request cancelled.');
+        }
+        final channel = WebSocketChannel.connect(
+          Uri(
+            scheme: 'wss',
+            host: 'generativelanguage.googleapis.com',
+            path:
+                '/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent',
+            queryParameters: {'key': apiKey},
+          ),
+        );
+        _activeChannel = channel;
+        if (_requestGeneration != generation) {
+          _activeChannel = null;
+          await channel.sink.close();
+          throw StateError('Gemini request cancelled.');
+        }
+        final reply = Completer<GeminiLiveReply>();
+        final audio = BytesBuilder(copy: false);
+        final transcript = StringBuffer();
+        var sentText = false;
+        final subscription = channel.stream.listen(
+          (event) {
+            try {
+              if (event is! String) {
+                throw const FormatException(
+                  'Gemini Live returned an unsupported frame.',
+                );
+              }
+              final message = jsonDecode(event) as Map<String, dynamic>;
+              if (message.containsKey('setupComplete') && !sentText) {
+                sentText = true;
+                channel.sink.add(
+                  jsonEncode({
+                    'clientContent': {
+                      'turns': [
+                        {
+                          'role': 'user',
+                          'parts': [
+                            {'text': text},
+                          ],
+                        },
+                      ],
+                      'turnComplete': true,
+                    },
+                  }),
+                );
+              }
+              final error = message['error'];
+              if (error is Map<String, dynamic>) {
+                final statusCode = error['code'];
+                if (statusCode is int) {
+                  throw GeminiApiException(
+                    statusCode,
+                    error['message']?.toString() ??
+                        'Gemini Live request failed.',
+                  );
+                }
+                final status = error['status'];
+                if (status == 'UNAVAILABLE' ||
+                    status == 'RESOURCE_EXHAUSTED' ||
+                    status == 'DEADLINE_EXCEEDED') {
+                  throw RetryableGeminiException(
+                    error['message']?.toString() ??
+                        'Gemini Live is temporarily unavailable.',
+                  );
+                }
+                throw FormatException(
                   error['message']?.toString() ?? 'Gemini Live request failed.',
                 );
               }
-              final status = error['status'];
-              if (status == 'UNAVAILABLE' ||
-                  status == 'RESOURCE_EXHAUSTED' ||
-                  status == 'DEADLINE_EXCEEDED') {
-                throw RetryableGeminiException(
-                  error['message']?.toString() ?? 'Gemini Live is temporarily unavailable.',
-                );
+              final content = message['serverContent'];
+              if (content is! Map<String, dynamic>) return;
+              final outputTranscription = content['outputTranscription'];
+              if (outputTranscription is Map<String, dynamic> &&
+                  outputTranscription['text'] is String) {
+                transcript.write(outputTranscription['text']);
               }
-              throw FormatException(
-                error['message']?.toString() ?? 'Gemini Live request failed.',
-              );
-            }
-            final content = message['serverContent'];
-            if (content is! Map<String, dynamic>) return;
-            final outputTranscription = content['outputTranscription'];
-            if (outputTranscription is Map<String, dynamic> &&
-                outputTranscription['text'] is String) {
-              transcript.write(outputTranscription['text']);
-            }
-            final modelTurn = content['modelTurn'];
-            final parts = modelTurn is Map<String, dynamic>
-                ? modelTurn['parts']
-                : null;
-            if (parts is List) {
-              for (final part in parts) {
-                if (part is Map<String, dynamic> &&
-                    part['inlineData'] is Map<String, dynamic>) {
-                  final data =
-                      (part['inlineData'] as Map<String, dynamic>)['data'];
-                  if (data is String && data.isNotEmpty) {
-                    audio.add(base64Decode(data));
+              final modelTurn = content['modelTurn'];
+              final parts = modelTurn is Map<String, dynamic>
+                  ? modelTurn['parts']
+                  : null;
+              if (parts is List) {
+                for (final part in parts) {
+                  if (part is Map<String, dynamic> &&
+                      part['inlineData'] is Map<String, dynamic>) {
+                    final data =
+                        (part['inlineData'] as Map<String, dynamic>)['data'];
+                    if (data is String && data.isNotEmpty) {
+                      audio.add(base64Decode(data));
+                    }
                   }
                 }
               }
-            }
-            if (content['interrupted'] == true) audio.clear();
-            if (content['turnComplete'] == true && !reply.isCompleted) {
-              final pcm = audio.takeBytes();
-              if (pcm.isEmpty) {
-                throw const FormatException('Gemini Live returned no speech audio.');
+              if (content['interrupted'] == true) audio.clear();
+              if (content['turnComplete'] == true && !reply.isCompleted) {
+                final pcm = audio.takeBytes();
+                if (pcm.isEmpty) {
+                  throw const FormatException(
+                    'Gemini Live returned no speech audio.',
+                  );
+                }
+                reply.complete(
+                  GeminiLiveReply(transcript: transcript.toString(), pcm: pcm),
+                );
               }
-              reply.complete(
-                GeminiLiveReply(
-                  transcript: transcript.toString(),
-                  pcm: pcm,
+            } catch (error, stackTrace) {
+              if (!reply.isCompleted) reply.completeError(error, stackTrace);
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (!reply.isCompleted) {
+              reply.completeError(
+                RetryableGeminiException(
+                  'Gemini Live connection failed. Check your key, model access, and network.',
+                ),
+                stackTrace,
+              );
+            }
+          },
+          onDone: () {
+            if (!reply.isCompleted) {
+              reply.completeError(
+                const RetryableGeminiException(
+                  'Gemini Live closed before finishing the reply.',
                 ),
               );
             }
-          } catch (error, stackTrace) {
-            if (!reply.isCompleted) reply.completeError(error, stackTrace);
-          }
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          if (!reply.isCompleted) {
-            reply.completeError(
-              RetryableGeminiException(
-                'Gemini Live connection failed. Check your key, model access, and network.',
-              ),
-              stackTrace,
-            );
-          }
-        },
-        onDone: () {
-          if (!reply.isCompleted) {
-            reply.completeError(
-              const RetryableGeminiException(
-                'Gemini Live closed before finishing the reply.',
-              ),
-            );
-          }
-        },
-        cancelOnError: false,
-      );
-      try {
-        await channel.ready.timeout(const Duration(seconds: 20));
-        channel.sink.add(
-          jsonEncode({
-            'setup': {
-              'model': 'models/gemini-3.8-live',
-              'responseModalities': ['AUDIO'],
-              'systemInstruction': {
-                'parts': [
-                  {
-                    'text': 'You are Jiva, a helpful Hindi and multilingual phone assistant. Speak naturally and briefly. Never claim an action was completed unless the user has confirmed it in the app.'
-                  }
-                ]
-              },
-              'generationConfig': {
-                'speechConfig': {
-                  'voiceConfig': {
-                    'prebuiltVoiceConfig': {'voiceName': voice}
-                  }
-                }
-              }
-            }
-          }),
+          },
+          cancelOnError: false,
         );
-        return await reply.future.timeout(const Duration(seconds: 75));
-      } finally {
-        await subscription.cancel();
-        await channel.sink.close();
-        if (identical(_activeChannel, channel)) _activeChannel = null;
-      }
-    }, onRetry: (attempt, error) {
-      if (_requestGeneration != generation) {
-        throw StateError('Gemini request cancelled.');
-      }
-      onRetry?.call(attempt, error);
-    });
+        try {
+          await channel.ready.timeout(const Duration(seconds: 20));
+          channel.sink.add(
+            jsonEncode({
+              'setup': {
+                'model': 'models/gemini-3.8-live',
+                'responseModalities': ['AUDIO'],
+                'systemInstruction': {
+                  'parts': [
+                    {
+                      'text':
+                          'You are Jiva, a helpful Hindi and multilingual phone assistant. Speak naturally and briefly. Never claim an action was completed unless the user has confirmed it in the app.',
+                    },
+                  ],
+                },
+                'generationConfig': {
+                  'speechConfig': {
+                    'voiceConfig': {
+                      'prebuiltVoiceConfig': {'voiceName': voice},
+                    },
+                  },
+                },
+              },
+            }),
+          );
+          return await reply.future.timeout(const Duration(seconds: 75));
+        } finally {
+          await subscription.cancel();
+          await channel.sink.close();
+          if (identical(_activeChannel, channel)) _activeChannel = null;
+        }
+      },
+      onRetry: (attempt, error) {
+        if (_requestGeneration != generation) {
+          throw StateError('Gemini request cancelled.');
+        }
+        onRetry?.call(attempt, error);
+      },
+    );
   }
 }

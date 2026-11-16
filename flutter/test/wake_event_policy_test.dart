@@ -12,13 +12,13 @@ void main() {
   };
 
   bool allowed(Map<String, bool> fields) => WakeEventPolicy.shouldQueue(
-        enabled: fields['enabled']!,
-        active: fields['active']!,
-        pending: fields['pending']!,
-        busy: fields['busy']!,
-        listening: fields['listening']!,
-        hasActionPlan: fields['hasActionPlan']!,
-      );
+    enabled: fields['enabled']!,
+    active: fields['active']!,
+    pending: fields['pending']!,
+    busy: fields['busy']!,
+    listening: fields['listening']!,
+    hasActionPlan: fields['hasActionPlan']!,
+  );
 
   test('accepts one idle armed wake callback', () {
     expect(allowed(valid), isTrue);

@@ -52,16 +52,18 @@ class LocalCommandParser {
     }
 
     if (_contains(text, const [
-      'कॉल',
-      'फोन',
-      'llama',
-      'llamar',
-      'anrufen',
-      '打电话',
-    ]) || _containsWholeEnglishVerb(text, const ['call', 'phone'])) {
+          'कॉल',
+          'फोन',
+          'llama',
+          'llamar',
+          'anrufen',
+          '打电话',
+        ]) ||
+        _containsWholeEnglishVerb(text, const ['call', 'phone'])) {
       return IntentPlan(
         action: AssistantAction.call,
-        reply: 'Enter a phone number. Jiva will open the dialer for your review.',
+        reply:
+            'Enter a phone number. Jiva will open the dialer for your review.',
         recipientQuery: _extractRecipient(raw),
       );
     }
@@ -93,19 +95,19 @@ class LocalCommandParser {
       '设置',
       '設定',
     ])) {
-      final target = _contains(text, const ['wifi', 'wi-fi', 'वाईफाई', 'वाइफाइ'])
+      final target =
+          _contains(text, const ['wifi', 'wi-fi', 'वाईफाई', 'वाइफाइ'])
           ? 'wifi'
           : _contains(text, const ['bluetooth', 'ब्लूटूथ'])
-              ? 'bluetooth'
-              : _contains(text, const ['display', 'screen', 'डिस्प्ले', 'स्क्रीन'])
-                  ? 'display'
-                  : _contains(text, const ['sound', 'volume', 'आवाज़', 'ध्वनि'])
-                      ? 'sound'
-                      : 'general';
+          ? 'bluetooth'
+          : _contains(text, const ['display', 'screen', 'डिस्प्ले', 'स्क्रीन'])
+          ? 'display'
+          : _contains(text, const ['sound', 'volume', 'आवाज़', 'ध्वनि'])
+          ? 'sound'
+          : 'general';
       return IntentPlan(
         action: AssistantAction.openSettings,
-        reply:
-            'I can open Android settings. You approve any changes there.',
+        reply: 'I can open Android settings. You approve any changes there.',
         settingsTarget: target,
       );
     }
@@ -150,10 +152,12 @@ class LocalCommandParser {
 
   // Prevent "My Local Bank App" from being mistaken for "call".
   static bool _containsWholeEnglishVerb(String text, List<String> verbs) =>
-      verbs.any((verb) => RegExp(
-            r'(?<![\p{L}\p{N}])' + RegExp.escape(verb) + r'(?![\p{L}\p{N}])',
-            unicode: true,
-          ).hasMatch(text));
+      verbs.any(
+        (verb) => RegExp(
+          r'(?<![\p{L}\p{N}])' + RegExp.escape(verb) + r'(?![\p{L}\p{N}])',
+          unicode: true,
+        ).hasMatch(text),
+      );
 
   static bool _contains(String text, List<String> phrases) =>
       phrases.any(text.contains);
@@ -163,7 +167,11 @@ class LocalCommandParser {
 
   static String? _phoneAction(String text) {
     if ({'home', 'go home', 'home screen'}.contains(text) ||
-        _contains(text, const ['go to home screen', 'होम स्क्रीन', 'होम पर जाओ'])) {
+        _contains(text, const [
+          'go to home screen',
+          'होम स्क्रीन',
+          'होम पर जाओ',
+        ])) {
       return 'home';
     }
     if ({'back', 'go back'}.contains(text) ||
@@ -188,8 +196,11 @@ class LocalCommandParser {
         ])) {
       return 'notifications';
     }
-    if ({'quick settings', 'open quick settings', 'control center'}
-            .contains(text) ||
+    if ({
+          'quick settings',
+          'open quick settings',
+          'control center',
+        }.contains(text) ||
         _contains(text, const ['क्विक सेटिंग', 'कंट्रोल सेंटर'])) {
       return 'quick_settings';
     }

@@ -23,7 +23,9 @@ class ReminderService {
     tz_data.initializeTimeZones();
     await _notifications.initialize(
       const InitializationSettings(
-        android: AndroidInitializationSettings('@drawable/ic_jiva_notification'),
+        android: AndroidInitializationSettings(
+          '@drawable/ic_jiva_notification',
+        ),
         iOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
@@ -61,7 +63,9 @@ class ReminderService {
         }
       }
       if (failures > 0) {
-        throw StateError('$failures pending reminder(s) could not be restored.');
+        throw StateError(
+          '$failures pending reminder(s) could not be restored.',
+        );
       }
     } finally {
       _schedulePending = false;
@@ -87,10 +91,9 @@ class ReminderService {
   }
 
   int _allocateId(Set<int> used) => ReminderIdPolicy.next(used, () {
-        _nextIdSeed = (_nextIdSeed + 1) & 0x7fffffff;
-        return (DateTime.now().microsecondsSinceEpoch + _nextIdSeed) &
-            0x7fffffff;
-      });
+    _nextIdSeed = (_nextIdSeed + 1) & 0x7fffffff;
+    return (DateTime.now().microsecondsSinceEpoch + _nextIdSeed) & 0x7fffffff;
+  });
 
   Future<void> _scheduleNotification(ReminderItem reminder) async {
     await _notifications.zonedSchedule(
@@ -115,12 +118,16 @@ class ReminderService {
   }
 
   String _encode(List<ReminderItem> reminders) => jsonEncode(
-        reminders.map((item) => {
-          'id': item.id,
-          'text': item.text,
-          'triggerAt': item.triggerAt.toIso8601String(),
-        }).toList(),
-      );
+    reminders
+        .map(
+          (item) => {
+            'id': item.id,
+            'text': item.text,
+            'triggerAt': item.triggerAt.toIso8601String(),
+          },
+        )
+        .toList(),
+  );
 
   Future<ReminderItem> schedule(String text, DateTime triggerAt) async {
     if (text.trim().isEmpty) {

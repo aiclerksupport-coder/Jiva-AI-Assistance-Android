@@ -19,11 +19,10 @@ typedef JivaGatewayTokenProvider = Future<JivaGatewayTokens> Function();
 class JivaGatewayClient {
   JivaGatewayClient({
     required Uri baseUrl,
-    required JivaGatewayTokenProvider tokens,
+    required this._tokens,
     http.Client? client,
-  })  : _baseUrl = baseUrl,
-        _tokens = tokens,
-        _client = client ?? http.Client() {
+  }) : _baseUrl = baseUrl,
+       _client = client ?? http.Client() {
     if (baseUrl.scheme != 'https' ||
         baseUrl.host.isEmpty ||
         baseUrl.userInfo.isNotEmpty ||
@@ -65,16 +64,18 @@ class JivaGatewayClient {
     if (uri.scheme != 'https' || uri.host != _baseUrl.host) {
       throw StateError('Unsafe gateway URL.');
     }
-    final response = await _client.post(
-      uri,
-      headers: {
-        'Authorization': 'Bearer ${session.firebaseIdToken}',
-        'X-Firebase-AppCheck': session.appCheckToken,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store',
-      },
-      body: jsonEncode(payload),
-    ).timeout(const Duration(seconds: 30));
+    final response = await _client
+        .post(
+          uri,
+          headers: {
+            'Authorization': 'Bearer ${session.firebaseIdToken}',
+            'X-Firebase-AppCheck': session.appCheckToken,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+          },
+          body: jsonEncode(payload),
+        )
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError('Jiva gateway failed (HTTP ${response.statusCode}).');
     }

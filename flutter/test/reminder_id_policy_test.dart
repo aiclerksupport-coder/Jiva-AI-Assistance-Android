@@ -13,10 +13,17 @@ void main() {
 
   test('negative and zero ID candidates fail safely', () {
     var attempt = 0;
-    expect(ReminderIdPolicy.next({}, () {
-      attempt++;
-      return attempt == 1 ? -7 : attempt == 2 ? 0 : 70;
-    }), 70);
+    expect(
+      ReminderIdPolicy.next({}, () {
+        attempt++;
+        return attempt == 1
+            ? -7
+            : attempt == 2
+            ? 0
+            : 70;
+      }),
+      70,
+    );
   });
 
   test('repeated collision deterministically finds free ID', () {

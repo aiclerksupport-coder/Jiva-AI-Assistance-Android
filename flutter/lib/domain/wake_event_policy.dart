@@ -12,11 +12,5 @@ class WakeEventPolicy {
     required bool busy,
     required bool listening,
     required bool hasActionPlan,
-  }) =>
-      enabled &&
-      active &&
-      !pending &&
-      !busy &&
-      !listening &&
-      !hasActionPlan;
+  }) => enabled && active && !pending && !busy && !listening && !hasActionPlan;
 }

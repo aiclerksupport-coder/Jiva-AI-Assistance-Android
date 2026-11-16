@@ -13,14 +13,17 @@ void main() {
       expect(request.headers['X-Firebase-AppCheck'], 'firebase-appcheck-token');
       expect(request.headers.containsKey('x-goog-api-key'), false);
       expect(jsonDecode(request.body)['text'], 'Open Maps');
-      return http.Response(jsonEncode({'action':'OPEN_APP','reply':'Review action'}),200);
+      return http.Response(
+        jsonEncode({'action': 'OPEN_APP', 'reply': 'Review action'}),
+        200,
+      );
     });
     final gateway = JivaGatewayClient(
       baseUrl: Uri.parse('https://jiva.example/'),
       client: client,
       tokens: () async => const JivaGatewayTokens(
-        firebaseIdToken:'firebase-user-token',
-        appCheckToken:'firebase-appcheck-token',
+        firebaseIdToken: 'firebase-user-token',
+        appCheckToken: 'firebase-appcheck-token',
       ),
     );
     final result = await gateway.interpret('Open Maps');
@@ -31,7 +34,8 @@ void main() {
   test('gateway fails closed without user token', () async {
     final gateway = JivaGatewayClient(
       baseUrl: Uri.parse('https://jiva.example/'),
-      tokens: () async => const JivaGatewayTokens(firebaseIdToken:'',appCheckToken:''),
+      tokens: () async =>
+          const JivaGatewayTokens(firebaseIdToken: '', appCheckToken: ''),
     );
     await expectLater(gateway.interpret('Hello'), throwsStateError);
     gateway.close();
@@ -41,7 +45,8 @@ void main() {
     expect(
       () => JivaGatewayClient(
         baseUrl: Uri.parse('http://jiva.example/'),
-        tokens: () async => const JivaGatewayTokens(firebaseIdToken:'x',appCheckToken:'y'),
+        tokens: () async =>
+            const JivaGatewayTokens(firebaseIdToken: 'x', appCheckToken: 'y'),
       ),
       throwsArgumentError,
     );

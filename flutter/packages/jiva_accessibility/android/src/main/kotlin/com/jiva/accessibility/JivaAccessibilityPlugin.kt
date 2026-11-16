@@ -18,12 +18,14 @@ class JivaAccessibilityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
     private lateinit var channel: MethodChannel
     private lateinit var speechChannel: MethodChannel
     private var speechEngine: JivaSpeechEngine? = null
+    private var liveAudio: JivaLiveAudio? = null
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
         channel = MethodChannel(binding.binaryMessenger, "com.jiva/accessibility")
         channel.setMethodCallHandler(this)
         speechChannel = MethodChannel(binding.binaryMessenger, "com.jiva/speech")
+        liveAudio = JivaLiveAudio(context, binding.binaryMessenger)
         speechEngine = JivaSpeechEngine(context, speechChannel)
         speechChannel.setMethodCallHandler(speechEngine)
     }
@@ -31,6 +33,8 @@ class JivaAccessibilityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
         speechChannel.setMethodCallHandler(null)
+        liveAudio?.release()
+        liveAudio = null
         speechEngine?.release()
         speechEngine = null
         if (resultChannel === channel) resultChannel = null
@@ -38,6 +42,7 @@ class JivaAccessibilityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         resultChannel = channel
+        flushBufferedScreenResult()
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
@@ -46,6 +51,7 @@ class JivaAccessibilityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         resultChannel = channel
+        flushBufferedScreenResult()
     }
 
     override fun onDetachedFromActivity() {
@@ -70,22 +76,61 @@ class JivaAccessibilityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
                         JivaAccessibilityService.PREFERENCES,
                         Context.MODE_PRIVATE,
                     ).edit().putBoolean(JivaAccessibilityService.ENABLED_KEY, enabled).apply()
+                    if (!enabled) serviceOrNull()?.setFloatingControls(false)
+                    result.success(null)
+                }
+                "setFloatingControls" -> {
+                    val enabled = call.argument<Boolean>("enabled")
+                        ?: throw IllegalArgumentException("Floating controls enabled state is required.")
+                    service().setFloatingControls(enabled)
+                    result.success(null)
+                }
+                "areFloatingControlsEnabled" -> {
+                    result.success(context.getSharedPreferences(
+                        JivaAccessibilityService.PREFERENCES, Context.MODE_PRIVATE,
+                    ).getBoolean(JivaAccessibilityService.FLOATING_CONTROLS_KEY, false))
+                }
+                "cancelPendingScreenAction" -> {
+                    service().cancelPendingScreenAction()
+                    result.success(null)
+                }
+                "requestReviewedScreenshot" -> {
+                    service().requestReviewedScreenshot()
+                    result.success(null)
+                }
+                "launchReviewedApp" -> {
+                    val target = call.argument<String>("packageName")
+                        ?: throw IllegalArgumentException("Reviewed package is required.")
+                    val operationId = call.argument<String>("operationId").orEmpty()
+                    service().launchReviewedApp(target, operationId)
+                    result.success(null)
+                }
+                "verifyVisibleGoal" -> {
+                    val text = call.argument<String>("text")
+                        ?: throw IllegalArgumentException("Expected final text is required.")
+                    service().verifyVisibleGoal(text, call.argument<String>("operationId").orEmpty())
                     result.success(null)
                 }
                 "requestVisibleScreenRead" -> {
-                    service().requestVisibleScreenRead()
+                    service().requestVisibleScreenRead(call.argument<String>("operationId").orEmpty())
                     result.success(null)
                 }
                 "queueVisibleTextClick" -> {
                     val text = call.argument<String>("text")
                         ?: throw IllegalArgumentException("Visible label is required.")
-                    service().queueVisibleTextClick(text)
+                    service().queueVisibleTextClick(text, call.argument<String>("operationId").orEmpty())
+                    result.success(null)
+                }
+                "queueFocusedTextInput" -> {
+                    val text = call.argument<String>("text")
+                        ?: throw IllegalArgumentException("Text is required.")
+                    service().queueFocusedTextInput(text, call.argument<String>("operationId").orEmpty())
                     result.success(null)
                 }
                 "queueScreenAction" -> {
                     val action = call.argument<String>("action")
                         ?: throw IllegalArgumentException("Screen action is required.")
-                    service().queueScreenAction(action)
+                    service().queueScreenAction(action, call.argument<String>("operationId").orEmpty())
                     result.success(null)
                 }
                 "performPhoneNavigation" -> {
@@ -99,6 +144,9 @@ class JivaAccessibilityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
             result.error("JIVA_SCREEN_ASSIST", error.message, null)
         }
     }
+
+    private fun serviceOrNull(): JivaAccessibilityService? =
+        JivaAccessibilityService.instance
 
     private fun service(): JivaAccessibilityService =
         JivaAccessibilityService.instance
@@ -118,17 +166,48 @@ class JivaAccessibilityPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
         private var resultChannel: MethodChannel? = null
 
         private val mainHandler = Handler(Looper.getMainLooper())
+        // One bounded result is retained only while Flutter Activity is detached.
+        // This buffer is process-local; after process death Dart checkpoint remains uncertain.
+        private var bufferedScreenResult: Map<String, Any>? = null
+
+        private fun flushBufferedScreenResult() {
+            mainHandler.post {
+                val result = bufferedScreenResult ?: return@post
+                val destination = resultChannel ?: return@post
+                bufferedScreenResult = null
+                destination.invokeMethod("screenAssistResult", result)
+            }
+        }
+
+        /** Image never goes through the text buffer and is dropped if Flutter is detached. */
+        fun reportReviewedScreenshot(base64Jpeg: String, sourcePackage: String) {
+            mainHandler.post {
+                resultChannel?.invokeMethod("reviewedScreenshot", mapOf(
+                    "jpeg" to base64Jpeg,
+                    "sourcePackage" to sourcePackage.take(200),
+                ))
+            }
+        }
 
         fun reportScreenAssistResult(
             type: String,
             text: List<String>,
             message: String,
+            operationId: String = "",
         ) {
             mainHandler.post {
-                resultChannel?.invokeMethod(
-                    "screenAssistResult",
-                    mapOf("type" to type, "text" to text, "message" to message),
+                val result = mapOf<String, Any>(
+                    "type" to type,
+                    "text" to text.take(80).map { it.take(256) },
+                    "message" to message.take(300),
+                    "operationId" to operationId,
                 )
+                val destination = resultChannel
+                if (destination != null) {
+                    destination.invokeMethod("screenAssistResult", result)
+                } else {
+                    bufferedScreenResult = result
+                }
             }
         }
     }

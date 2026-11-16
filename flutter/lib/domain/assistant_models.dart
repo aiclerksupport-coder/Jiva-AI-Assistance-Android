@@ -58,17 +58,16 @@ class IntentPlan {
     String? phoneNumber,
     String? message,
     String? phoneAction,
-  }) =>
-      IntentPlan(
-        action: action,
-        reply: reply,
-        appName: appName ?? this.appName,
-        recipientQuery: recipientQuery,
-        phoneNumber: phoneNumber ?? this.phoneNumber,
-        message: message ?? this.message,
-        settingsTarget: settingsTarget,
-        phoneAction: phoneAction ?? this.phoneAction,
-      );
+  }) => IntentPlan(
+    action: action,
+    reply: reply,
+    appName: appName ?? this.appName,
+    recipientQuery: recipientQuery,
+    phoneNumber: phoneNumber ?? this.phoneNumber,
+    message: message ?? this.message,
+    settingsTarget: settingsTarget,
+    phoneAction: phoneAction ?? this.phoneAction,
+  );
 }
 
 class ReminderItem {

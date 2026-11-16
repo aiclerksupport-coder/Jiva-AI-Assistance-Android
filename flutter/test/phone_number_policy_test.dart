@@ -8,8 +8,17 @@ void main() {
     }
   });
   test('USSD/MMI, empty, URI payloads and malformed numbers rejected', () {
-    for (final n in ['', ' ', '*21*123#', '#06#', 'tel:123456',
-      '123;phone-context=bad', 'sms:123', 'ab12', '12']) {
+    for (final n in [
+      '',
+      ' ',
+      '*21*123#',
+      '#06#',
+      'tel:123456',
+      '123;phone-context=bad',
+      'sms:123',
+      'ab12',
+      '12',
+    ]) {
       expect(PhoneNumberPolicy.isSafe(n), isFalse, reason: n);
     }
   });

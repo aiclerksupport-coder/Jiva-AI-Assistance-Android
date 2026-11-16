@@ -6,9 +6,9 @@ void main() {
   testWidgets('Jiva MaterialApp renders assistant screen', (tester) async {
     // The screen starts async native/plugin setup; verify the app shell
     // without depending on microphone or Gemini network availability.
-    await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(body: Text('Jiva AI Assistance')),
-    ));
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: Text('Jiva AI Assistance'))),
+    );
     expect(find.text('Jiva AI Assistance'), findsOneWidget);
     expect(JivaApp, isNotNull);
   });

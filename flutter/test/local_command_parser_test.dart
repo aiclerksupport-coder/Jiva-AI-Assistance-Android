@@ -7,21 +7,24 @@ void main() {
   final parser = LocalCommandParser();
 
   test('recognizes supported command types and preserves message draft', () {
-    expect(parser.parse('Remind me tomorrow')?.action, AssistantAction.reminder);
     expect(
-      parser.parse('Call Alex')?.action,
-      AssistantAction.call,
+      parser.parse('Remind me tomorrow')?.action,
+      AssistantAction.reminder,
     );
+    expect(parser.parse('Call Alex')?.action, AssistantAction.call);
     final sms = parser.parse('Send message saying "See you soon"');
     expect(sms?.action, AssistantAction.sms);
     expect(sms?.message, 'See you soon');
   });
 
-  test('unknown installed app name containing Local does not trigger a call', () {
-    final plan = parser.parse('Open My Local Bank App');
-    expect(plan?.action, AssistantAction.openApp);
-    expect(plan?.appName, 'My Local Bank App');
-  });
+  test(
+    'unknown installed app name containing Local does not trigger a call',
+    () {
+      final plan = parser.parse('Open My Local Bank App');
+      expect(plan?.action, AssistantAction.openApp);
+      expect(plan?.appName, 'My Local Bank App');
+    },
+  );
 
   test('call requires a standalone English command word', () {
     expect(parser.parse('Call Alex')?.action, AssistantAction.call);
@@ -71,28 +74,47 @@ void main() {
     expect(parser.parse('I need help with homework'), isNull);
   });
 
-
   test('phone handoff policy rejects USSD and accepts share drafts', () {
-    expect(ActionPolicy.canDispatch(const IntentPlan(
-      action: AssistantAction.call,
-      reply: 'dial',
-      phoneNumber: '*21*123#',
-    )), isFalse);
-    expect(ActionPolicy.canDispatch(const IntentPlan(
-      action: AssistantAction.sms,
-      reply: 'message',
-      phoneNumber: '+91 98765 43210',
-    )), isTrue);
-    expect(ActionPolicy.canDispatch(const IntentPlan(
-      action: AssistantAction.whatsappShare,
-      reply: 'share',
-      message: 'Namaste bhidu',
-    )), isTrue);
-    expect(ActionPolicy.canDispatch(const IntentPlan(
-      action: AssistantAction.whatsappShare,
-      reply: 'share',
-      message: '  ',
-    )), isFalse);
+    expect(
+      ActionPolicy.canDispatch(
+        const IntentPlan(
+          action: AssistantAction.call,
+          reply: 'dial',
+          phoneNumber: '*21*123#',
+        ),
+      ),
+      isFalse,
+    );
+    expect(
+      ActionPolicy.canDispatch(
+        const IntentPlan(
+          action: AssistantAction.sms,
+          reply: 'message',
+          phoneNumber: '+91 98765 43210',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      ActionPolicy.canDispatch(
+        const IntentPlan(
+          action: AssistantAction.whatsappShare,
+          reply: 'share',
+          message: 'Namaste bhidu',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      ActionPolicy.canDispatch(
+        const IntentPlan(
+          action: AssistantAction.whatsappShare,
+          reply: 'share',
+          message: '  ',
+        ),
+      ),
+      isFalse,
+    );
   });
 
   test('maps Gemini action names to safe local enum values', () {
