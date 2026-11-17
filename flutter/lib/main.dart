@@ -8,6 +8,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'domain/wake_event_policy.dart';
+import 'ui/jiva_theme.dart';
+import 'ui/jiva_widgets.dart';
+import 'ui/jiva_about_screen.dart';
+import 'ui/jiva_splash.dart';
 import 'domain/app_launch_match.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -57,11 +61,10 @@ class JivaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Jiva AI Assistance',
-    theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-      useMaterial3: true,
-    ),
-    home: const AssistantScreen(),
+    theme: JivaTheme.light,
+    darkTheme: JivaTheme.dark,
+    themeMode: ThemeMode.system,
+    home: const JivaSplashGate(destination: AssistantScreen()),
   );
 }
 
@@ -2955,93 +2958,113 @@ class _AssistantScreenState extends State<AssistantScreen>
     }
   }
 
+  void _showAboutJiva() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const JivaAboutScreen()));
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Jiva'),
+      titleSpacing: 8,
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            'assets/branding/jiva_symbol.png',
+            width: 34,
+            height: 34,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(width: 5),
+          const Flexible(
+            child: Text(
+              'Jiva AI',
+              maxLines: 1,
+              overflow: TextOverflow.fade,
+              softWrap: false,
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 19),
+            ),
+          ),
+        ],
+      ),
       actions: [
-        Text(_enabled ? 'On' : 'Off'),
-        Switch(value: _enabled, onChanged: _setAssistantEnabled),
+        Semantics(
+          label: _enabled ? 'Jiva enabled' : 'Jiva disabled',
+          child: Switch(value: _enabled, onChanged: _setAssistantEnabled),
+        ),
         IconButton(
           tooltip: 'Wake-word settings',
           onPressed: _openWakeWordSettings,
-          icon: const Icon(Icons.hearing),
+          icon: const Icon(Icons.hearing_outlined),
         ),
-        TextButton(
+        IconButton(
+          tooltip: !_hasApiKey
+              ? 'Gemini key'
+              : _keyVerified
+              ? 'Gemini verified'
+              : 'Gemini key saved',
           onPressed: _openKeySettings,
-          child: Text(
-            !_hasApiKey
-                ? 'Gemini key'
-                : _keyVerified
-                ? 'Gemini verified'
-                : 'Gemini key saved',
-          ),
+          icon: const Icon(Icons.auto_awesome_outlined),
+        ),
+        PopupMenuButton<String>(
+          tooltip: 'More options',
+          onSelected: (value) {
+            if (value == 'about') _showAboutJiva();
+            if (value == 'key') _openKeySettings();
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'about', child: Text('About Jiva AI')),
+            PopupMenuItem(value: 'key', child: Text('Gemini API key')),
+          ],
         ),
       ],
     ),
     body: SafeArea(
       child: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
         children: [
-          Text(
-            'Your assistant · user-controlled',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _liveStarting || !_enabled || !_isForeground
-                ? null
-                : _toggleLiveConversation,
-            icon: Icon(_liveActive ? Icons.stop_circle : Icons.mic),
-            label: Text(
-              _liveActive
-                  ? 'Stop Live Conversation'
-                  : _liveStarting
-                  ? 'Connecting…'
-                  : 'Start Live Conversation (foreground)',
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            decoration: BoxDecoration(
+              gradient: JivaTheme.accentGradient,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: JivaPalette.teal.withValues(alpha: .15),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.graphic_eq, size: 34, color: JivaPalette.cyan),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your AI Assistant',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'Talk · Plan · Read · Assist · Automate',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const Text(
-            'Live mic only with explicit Start, while Jiva is open. '
-            'Network, permissions and model availability required.',
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              OutlinedButton(
-                onPressed: _offlineModelBusy ? null : _importOfflineModel,
-                child: const Text('Import local GGUF'),
-              ),
-              OutlinedButton(
-                onPressed: _offlineModelBusy ? null : _toggleOfflineModel,
-                child: Text(
-                  _offlineModelLoaded ? 'Unload offline AI' : 'Load offline AI',
-                ),
-              ),
-              FilledButton(
-                onPressed: _offlineModelLoaded && !_offlineModelBusy
-                    ? _askOfflineModel
-                    : null,
-                child: const Text('Ask offline AI'),
-              ),
-              OutlinedButton(
-                onPressed: _toggleSafeMaintenance,
-                child: Text(
-                  _maintenanceScheduled
-                      ? 'Stop safe maintenance'
-                      : 'Schedule safe maintenance',
-                ),
-              ),
-            ],
-          ),
-          const Text(
-            'Local model is user-imported and runs on-device. '
-            'Background maintenance is only private integrity upkeep, NOT '
-            'unattended phone control. Every multi-app step still needs approval.',
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -3060,7 +3083,10 @@ class _AssistantScreenState extends State<AssistantScreen>
                         : _sleeping
                         ? 'Jiva is sleeping · tap Speak to wake'
                         : 'Talk or type to Jiva',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   if (_transcript.isNotEmpty) Text('You: $_transcript'),
                   const SizedBox(height: 8),
@@ -3073,7 +3099,7 @@ class _AssistantScreenState extends State<AssistantScreen>
                         .map(
                           (voice) => DropdownMenuItem(
                             value: voice.name,
-                            child: Text(
+                            child: JivaButtonLabel(
                               '${voice.perceivedVoice}: ${voice.label}',
                             ),
                           ),
@@ -3098,7 +3124,7 @@ class _AssistantScreenState extends State<AssistantScreen>
                   Row(
                     children: [
                       Expanded(
-                        child: FilledButton.icon(
+                        child: JivaGradientButton(
                           onPressed: !_enabled || _busy || _listening
                               ? null
                               : () async {
@@ -3109,8 +3135,8 @@ class _AssistantScreenState extends State<AssistantScreen>
                                     await _listen();
                                   }
                                 },
-                          icon: const Icon(Icons.mic),
-                          label: Text(_listening ? 'Listening…' : 'Speak'),
+                          icon: Icons.mic,
+                          label: _listening ? 'Listening…' : 'Speak',
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -3135,12 +3161,191 @@ class _AssistantScreenState extends State<AssistantScreen>
                     onSubmitted: (_) => _submit(),
                   ),
                   const SizedBox(height: 8),
-                  FilledButton(
+                  JivaGradientButton(
                     onPressed: !_enabled || _busy ? null : _submit,
-                    child: const Text('Send'),
+                    icon: Icons.send_outlined,
+                    label: 'Send',
                   ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          JivaSectionHeading(title: 'Quick Actions', icon: Icons.bolt),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 330 ? 3 : 2;
+              return GridView.count(
+                crossAxisCount: columns,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: columns == 3 ? 1.95 : 2.5,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                children: [
+                  JivaActionTile(
+                    label: 'Apps',
+                    icon: Icons.apps,
+                    onPressed: !_enabled
+                        ? null
+                        : () => _showPlan(
+                            const IntentPlan(
+                              action: AssistantAction.openApp,
+                              reply: 'Choose an installed app.',
+                            ),
+                          ),
+                  ),
+                  JivaActionTile(
+                    label: 'Reminders',
+                    icon: Icons.calendar_month,
+                    onPressed: _enabled ? _editReminder : null,
+                  ),
+                  JivaActionTile(
+                    label: 'Settings',
+                    icon: Icons.settings_outlined,
+                    onPressed: !_enabled
+                        ? null
+                        : () => _showPlan(
+                            const IntentPlan(
+                              action: AssistantAction.openSettings,
+                              reply: 'Open settings?',
+                            ),
+                          ),
+                  ),
+                  JivaActionTile(
+                    label: 'Call',
+                    icon: Icons.call_outlined,
+                    onPressed: !_enabled
+                        ? null
+                        : () => _showPlan(
+                            const IntentPlan(
+                              action: AssistantAction.call,
+                              reply: 'Choose a number to call.',
+                            ),
+                          ),
+                  ),
+                  JivaActionTile(
+                    label: 'Message',
+                    icon: Icons.chat_bubble_outline,
+                    onPressed: !_enabled
+                        ? null
+                        : () => _showPlan(
+                            const IntentPlan(
+                              action: AssistantAction.sms,
+                              reply: 'Choose a number and review a message.',
+                            ),
+                          ),
+                  ),
+                  JivaActionTile(
+                    label: 'Camera',
+                    icon: Icons.photo_camera_outlined,
+                    onPressed: !_enabled
+                        ? null
+                        : () => _showPlan(
+                            const IntentPlan(
+                              action: AssistantAction.camera,
+                              reply: 'Open camera?',
+                            ),
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const JivaSectionHeading(
+                    title: 'Live Conversation',
+                    icon: Icons.mic,
+                  ),
+                  const SizedBox(height: 10),
+                  JivaGradientButton(
+                    label: _liveActive
+                        ? 'Stop Live Conversation'
+                        : _liveStarting
+                        ? 'Connecting…'
+                        : 'Start Live Conversation',
+                    icon: _liveActive ? Icons.stop_circle : Icons.mic,
+                    onPressed: _liveStarting || !_enabled || !_isForeground
+                        ? null
+                        : _toggleLiveConversation,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Live mic requires an explicit start, network, permissions and a supported model.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ExpansionTile(
+              title: const Text(
+                'Offline AI & Maintenance',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              leading: const Icon(Icons.memory, color: JivaPalette.teal),
+              childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _offlineModelBusy
+                            ? null
+                            : _importOfflineModel,
+                        child: const JivaButtonLabel('Import local GGUF'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _offlineModelBusy
+                            ? null
+                            : _toggleOfflineModel,
+                        child: JivaButtonLabel(
+                          _offlineModelLoaded
+                              ? 'Unload offline AI'
+                              : 'Load offline AI',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _offlineModelLoaded && !_offlineModelBusy
+                        ? _askOfflineModel
+                        : null,
+                    child: const JivaButtonLabel('Ask offline AI'),
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _toggleSafeMaintenance,
+                    child: JivaButtonLabel(
+                      _maintenanceScheduled
+                          ? 'Stop safe maintenance'
+                          : 'Schedule safe maintenance',
+                    ),
+                  ),
+                ),
+                Text(
+                  'Local model is user-imported and runs on-device. Maintenance only performs private integrity upkeep. Phone actions still require approval.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 18),
@@ -3171,12 +3376,21 @@ class _AssistantScreenState extends State<AssistantScreen>
           ),
           const SizedBox(height: 18),
           Card(
-            child: Column(
+            child: ExpansionTile(
+              leading: const Icon(
+                Icons.settings_voice,
+                color: JivaPalette.teal,
+              ),
+              title: const Text(
+                'Voice & Listening',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(
+                _audioProcessingStatus,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               children: [
-                ListTile(
-                  title: const Text('Voice input'),
-                  subtitle: Text(_audioProcessingStatus),
-                ),
                 SwitchListTile(
                   value: _noiseProcessingEnabled,
                   onChanged: _enabled ? _setNoiseProcessingEnabled : null,
@@ -3205,336 +3419,289 @@ class _AssistantScreenState extends State<AssistantScreen>
           if (Platform.isAndroid) ...[
             const SizedBox(height: 18),
             Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+              child: ExpansionTile(
+                leading: const Icon(
+                  Icons.desktop_windows_outlined,
+                  color: JivaPalette.teal,
+                ),
+                title: const Text(
+                  'Visible-screen Assistance',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: const Text(
+                  'Screen reading, approved actions & phone workflows',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
+                children: [
+                  const SizedBox(height: 8),
+                  Text(
+                    'Optional Android Accessibility access. After confirming, switch to the target app within 30 seconds; Jiva reads or acts only once on that next app screen. Text stays local and is not sent to Gemini. Android cannot reliably identify every secure window; do not use this on private, banking, login, or payment screens. Password fields block all screen actions.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'AI-guided phone workflow',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const Text(
+                    'Describe a task, review the plan, then use safe-run for hands-free safe steps. Sensitive steps pause for approval. Screen text stays local.',
+                  ),
+                  TextField(
+                    controller: _workflowTaskInput,
+                    enabled: _enabled && !_workflowPlanning,
+                    maxLength: 1000,
+                    decoration: const InputDecoration(
+                      labelText: 'Describe a phone task',
+                      hintText: 'Find settings, scroll, then read',
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed:
+                        !_enabled ||
+                            _workflowPlanning ||
+                            _screenAssistPending ||
+                            _phoneWorkflow != null
+                        ? null
+                        : _planPhoneTask,
+                    child: Text(
+                      _workflowPlanning
+                          ? 'Planning…'
+                          : 'Generate plan (offline basics supported)',
+                    ),
+                  ),
+                  if (_phoneWorkflow != null) ...[
+                    const SizedBox(height: 6),
                     Text(
-                      'Visible-screen assistance',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      'Step ${_phoneWorkflow!.index + 1} of ${_phoneWorkflow!.workflow.steps.length}',
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Optional Android Accessibility access. After confirming, switch to the target app within 30 seconds; Jiva reads or acts only once on that next app screen. Text stays local and is not sent to Gemini. Android cannot reliably identify every secure window; do not use this on private, banking, login, or payment screens. Password fields block all screen actions.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'AI-guided phone workflow',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const Text(
-                      'Describe a task, review the plan, then use safe-run for hands-free safe steps. Sensitive steps pause for approval. Screen text stays local.',
-                    ),
-                    TextField(
-                      controller: _workflowTaskInput,
-                      enabled: _enabled && !_workflowPlanning,
-                      maxLength: 1000,
-                      decoration: const InputDecoration(
-                        labelText: 'Describe a phone task',
-                        hintText: 'Find settings, scroll, then read',
-                      ),
-                    ),
-                    OutlinedButton(
-                      onPressed:
-                          !_enabled ||
-                              _workflowPlanning ||
-                              _screenAssistPending ||
-                              _phoneWorkflow != null
-                          ? null
-                          : _planPhoneTask,
-                      child: Text(
-                        _workflowPlanning
-                            ? 'Planning…'
-                            : 'Generate plan (offline basics supported)',
-                      ),
-                    ),
-                    if (_phoneWorkflow != null) ...[
-                      const SizedBox(height: 6),
+                    for (
+                      var i = 0;
+                      i < _phoneWorkflow!.workflow.steps.length;
+                      i++
+                    )
                       Text(
-                        'Step ${_phoneWorkflow!.index + 1} of ${_phoneWorkflow!.workflow.steps.length}',
+                        '${i < _phoneWorkflow!.index ? "✓" : "•"} ${_phoneWorkflow!.workflow.steps[i].description}',
                       ),
-                      for (
-                        var i = 0;
-                        i < _phoneWorkflow!.workflow.steps.length;
-                        i++
-                      )
-                        Text(
-                          '${i < _phoneWorkflow!.index ? "✓" : "•"} ${_phoneWorkflow!.workflow.steps[i].description}',
-                        ),
-                      Text(_phoneWorkflow!.lastStatus),
-                      if (_phoneWorkflow!.isComplete)
-                        Text(
-                          _phoneWorkflow!.goalVerified
-                              ? 'Goal verified from exact visible result.'
-                              : 'Steps ended, but end-goal was not verified.',
-                        ),
-                      if (_workflowRecovered)
-                        const Text(
-                          'Recovered after app restart. Review target app; no action automatically replays.',
-                        ),
-                      if (_phoneWorkflow!.uncertainAfterRestart)
-                        const Text(
-                          'Action status uncertain. Cancel and re-plan after inspecting the target app.',
-                        ),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          FilledButton(
-                            onPressed:
-                                !_enabled ||
-                                    _phoneWorkflow!.isComplete ||
-                                    _phoneWorkflow!.awaitingResult ||
-                                    _screenAssistPending ||
-                                    _workflowActionDispatching ||
-                                    _phoneWorkflow!.uncertainAfterRestart
-                                ? null
-                                : _runNextWorkflowStep,
-                            child: Text(
-                              _phoneWorkflow!.isComplete
-                                  ? 'Done'
-                                  : 'Approve next step',
-                            ),
-                          ),
-                          OutlinedButton(
-                            onPressed:
-                                !_enabled ||
-                                    _autoRunSafeSteps ||
-                                    _phoneWorkflow!.isComplete ||
-                                    _phoneWorkflow!.awaitingResult ||
-                                    _workflowActionDispatching ||
-                                    _phoneWorkflow!.uncertainAfterRestart
-                                ? null
-                                : _startAutoSafeWorkflow,
-                            child: Text(
-                              _autoRunSafeSteps
-                                  ? 'Safe-run active'
-                                  : 'Run safe steps',
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _cancelPhoneWorkflow,
-                            child: const Text('Cancel workflow'),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed: !_enabled ? null : _readVisibleScreen,
-                      child: const Text('Read visible screen'),
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.picture_in_picture_alt_outlined),
-                      onPressed:
-                          !_enabled ||
-                              !_screenAccessibilityEnabled ||
-                              _floatingControlsBusy
-                          ? null
-                          : _toggleFloatingControls,
-                      label: Text(
-                        _floatingControlsBusy
-                            ? 'Updating…'
-                            : _floatingControlsEnabled
-                            ? 'Hide system-wide Jiva controls'
-                            : 'Show system-wide Jiva controls',
-                      ),
-                    ),
-                    const Text(
-                      'Floating controls require enabled Android Accessibility. '
-                      'Jiva/Stop/Close only; background actions are never silently approved.',
-                    ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.screenshot_monitor),
-                      onPressed:
-                          !_enabled ||
-                              _screenAssistPending ||
-                              _phoneWorkflow != null
-                          ? null
-                          : _captureReviewedScreenshot,
-                      label: const Text('Capture screenshot (local preview)'),
-                    ),
-                    if (_reviewedScreenJpeg != null) ...[
+                    Text(_phoneWorkflow!.lastStatus),
+                    if (_phoneWorkflow!.isComplete)
                       Text(
-                        'Captured from $_reviewedScreenPackage (local until you explicitly share)',
+                        _phoneWorkflow!.goalVerified
+                            ? 'Goal verified from exact visible result.'
+                            : 'Steps ended, but end-goal was not verified.',
                       ),
-                      Image.memory(
-                        _reviewedScreenJpeg!,
-                        gaplessPlayback: false,
+                    if (_workflowRecovered)
+                      const Text(
+                        'Recovered after app restart. Review target app; no action automatically replays.',
                       ),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.visibility),
-                        onPressed: _screenVisionBusy
-                            ? null
-                            : _explainReviewedScreenshot,
-                        label: Text(
-                          _screenVisionBusy
-                              ? 'Analyzing…'
-                              : 'Explain with Gemini (share once)',
-                        ),
+                    if (_phoneWorkflow!.uncertainAfterRestart)
+                      const Text(
+                        'Action status uncertain. Cancel and re-plan after inspecting the target app.',
                       ),
-                      if (_screenVisionAnswer.isNotEmpty)
-                        SelectableText(_screenVisionAnswer),
-                      TextButton(
-                        onPressed: () => setState(() {
-                          _reviewedScreenJpeg = null;
-                          _reviewedScreenPackage = '';
-                          _screenVisionAnswer = '';
-                        }),
-                        child: const Text('Delete screenshot from memory'),
-                      ),
-                    ],
                     Wrap(
                       spacing: 8,
                       children: [
+                        FilledButton(
+                          onPressed:
+                              !_enabled ||
+                                  _phoneWorkflow!.isComplete ||
+                                  _phoneWorkflow!.awaitingResult ||
+                                  _screenAssistPending ||
+                                  _workflowActionDispatching ||
+                                  _phoneWorkflow!.uncertainAfterRestart
+                              ? null
+                              : _runNextWorkflowStep,
+                          child: Text(
+                            _phoneWorkflow!.isComplete
+                                ? 'Done'
+                                : 'Approve next step',
+                          ),
+                        ),
                         OutlinedButton(
+                          onPressed:
+                              !_enabled ||
+                                  _autoRunSafeSteps ||
+                                  _phoneWorkflow!.isComplete ||
+                                  _phoneWorkflow!.awaitingResult ||
+                                  _workflowActionDispatching ||
+                                  _phoneWorkflow!.uncertainAfterRestart
+                              ? null
+                              : _startAutoSafeWorkflow,
+                          child: Text(
+                            _autoRunSafeSteps
+                                ? 'Safe-run active'
+                                : 'Run safe steps',
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _cancelPhoneWorkflow,
+                          child: const Text('Cancel workflow'),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: !_enabled ? null : _readVisibleScreen,
+                    child: const JivaButtonLabel('Read visible screen'),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.picture_in_picture_alt_outlined),
+                    onPressed:
+                        !_enabled ||
+                            !_screenAccessibilityEnabled ||
+                            _floatingControlsBusy
+                        ? null
+                        : _toggleFloatingControls,
+                    label: JivaButtonLabel(
+                      _floatingControlsBusy
+                          ? 'Updating…'
+                          : _floatingControlsEnabled
+                          ? 'Hide system-wide Jiva controls'
+                          : 'Show system-wide Jiva controls',
+                    ),
+                  ),
+                  const Text(
+                    'Floating controls require enabled Android Accessibility. '
+                    'Jiva/Stop/Close only; background actions are never silently approved.',
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.screenshot_monitor),
+                    onPressed:
+                        !_enabled ||
+                            _screenAssistPending ||
+                            _phoneWorkflow != null
+                        ? null
+                        : _captureReviewedScreenshot,
+                    label: const JivaButtonLabel(
+                      'Capture screenshot (local preview)',
+                    ),
+                  ),
+                  if (_reviewedScreenJpeg != null) ...[
+                    Text(
+                      'Captured from $_reviewedScreenPackage (local until you explicitly share)',
+                    ),
+                    Image.memory(_reviewedScreenJpeg!, gaplessPlayback: false),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.visibility),
+                      onPressed: _screenVisionBusy
+                          ? null
+                          : _explainReviewedScreenshot,
+                      label: Text(
+                        _screenVisionBusy
+                            ? 'Analyzing…'
+                            : 'Explain with Gemini (share once)',
+                      ),
+                    ),
+                    if (_screenVisionAnswer.isNotEmpty)
+                      SelectableText(_screenVisionAnswer),
+                    TextButton(
+                      onPressed: () => setState(() {
+                        _reviewedScreenJpeg = null;
+                        _reviewedScreenPackage = '';
+                        _screenVisionAnswer = '';
+                      }),
+                      child: const Text('Delete screenshot from memory'),
+                    ),
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: JivaActionTile(
+                          label: 'Back',
+                          icon: Icons.arrow_back,
                           onPressed: !_enabled
                               ? null
                               : () => _performVisibleScreenAction('back'),
-                          child: const Text('Back'),
                         ),
-                        OutlinedButton(
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: JivaActionTile(
+                          label: 'Scroll up',
+                          icon: Icons.arrow_upward,
                           onPressed: !_enabled
                               ? null
                               : () => _performVisibleScreenAction(
                                   'scroll_backward',
                                 ),
-                          child: const Text('Scroll up'),
                         ),
-                        OutlinedButton(
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: JivaActionTile(
+                          label: 'Scroll down',
+                          icon: Icons.arrow_downward,
                           onPressed: !_enabled
                               ? null
                               : () => _performVisibleScreenAction(
                                   'scroll_forward',
                                 ),
-                          child: const Text('Scroll down'),
-                        ),
-                      ],
-                    ),
-                    TextField(
-                      controller: _screenTarget,
-                      enabled: _enabled,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Exact visible button label',
-                      ),
-                    ),
-                    OutlinedButton(
-                      onPressed: !_enabled || _screenTarget.text.trim().isEmpty
-                          ? null
-                          : _clickVisibleScreenLabel,
-                      child: const Text('Review and click'),
-                    ),
-                    if (_screenAssistError.isNotEmpty)
-                      Text(
-                        _screenAssistError,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
-                    if (_screenVisibleText.isNotEmpty) ...[
-                      const Text(
-                        'Visible text (not sent to Gemini):',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      SelectableText(_screenVisibleText),
                     ],
-                    TextButton(
-                      onPressed: !_enabled
-                          ? null
-                          : () async {
-                              try {
-                                await JivaAccessibility.openSettings();
-                              } catch (error) {
-                                if (mounted) {
-                                  setState(() => _screenAssistError = '$error');
-                                }
-                              }
-                            },
-                      child: Text(
-                        _screenAccessibilityEnabled
-                            ? 'Manage Android Accessibility Settings'
-                            : 'Open Android Accessibility Settings',
+                  ),
+                  TextField(
+                    controller: _screenTarget,
+                    enabled: _enabled,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Exact visible button label',
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: !_enabled || _screenTarget.text.trim().isEmpty
+                        ? null
+                        : _clickVisibleScreenLabel,
+                    child: const JivaButtonLabel('Review and click'),
+                  ),
+                  if (_screenAssistError.isNotEmpty)
+                    Text(
+                      _screenAssistError,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                     ),
+                  if (_screenVisibleText.isNotEmpty) ...[
+                    const Text(
+                      'Visible text (not sent to Gemini):',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SelectableText(_screenVisibleText),
                   ],
-                ),
+                  TextButton(
+                    onPressed: !_enabled
+                        ? null
+                        : () async {
+                            try {
+                              await JivaAccessibility.openSettings();
+                            } catch (error) {
+                              if (mounted) {
+                                setState(() => _screenAssistError = '$error');
+                              }
+                            }
+                          },
+                    child: JivaButtonLabel(
+                      _screenAccessibilityEnabled
+                          ? 'Manage Android Accessibility Settings'
+                          : 'Open Android Accessibility Settings',
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
           const SizedBox(height: 18),
-          Text('Quick actions', style: Theme.of(context).textTheme.titleLarge),
-          Wrap(
-            spacing: 8,
-            children: [
-              OutlinedButton(
-                onPressed: !_enabled
-                    ? null
-                    : () => _showPlan(
-                        const IntentPlan(
-                          action: AssistantAction.openApp,
-                          reply: 'Choose an installed app.',
-                        ),
-                      ),
-                child: const Text('Apps'),
-              ),
-              OutlinedButton(
-                onPressed: _enabled ? _editReminder : null,
-                child: const Text('Reminders'),
-              ),
-              OutlinedButton(
-                onPressed: !_enabled
-                    ? null
-                    : () => _showPlan(
-                        const IntentPlan(
-                          action: AssistantAction.openSettings,
-                          reply: 'Open settings?',
-                        ),
-                      ),
-                child: const Text('Settings'),
-              ),
-              OutlinedButton(
-                onPressed: !_enabled
-                    ? null
-                    : () => _showPlan(
-                        const IntentPlan(
-                          action: AssistantAction.call,
-                          reply: 'Choose a number to call.',
-                        ),
-                      ),
-                child: const Text('Call'),
-              ),
-              OutlinedButton(
-                onPressed: !_enabled
-                    ? null
-                    : () => _showPlan(
-                        const IntentPlan(
-                          action: AssistantAction.sms,
-                          reply: 'Choose a number and review a message.',
-                        ),
-                      ),
-                child: const Text('Message'),
-              ),
-              OutlinedButton(
-                onPressed: !_enabled
-                    ? null
-                    : () => _showPlan(
-                        const IntentPlan(
-                          action: AssistantAction.camera,
-                          reply: 'Open camera?',
-                        ),
-                      ),
-                child: const Text('Camera'),
-              ),
-            ],
+          const JivaSectionHeading(
+            title: 'Upcoming Reminders',
+            icon: Icons.notifications_outlined,
           ),
-          const SizedBox(height: 18),
-          Text(
-            'Upcoming reminders',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          if (_reminders.isEmpty) const Text('No reminders scheduled.'),
+          if (_reminders.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Text('No reminders scheduled.'),
+            ),
           for (final item in _reminders)
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -3542,6 +3709,16 @@ class _AssistantScreenState extends State<AssistantScreen>
               title: Text(item.text),
               subtitle: Text(item.triggerAt.toLocal().toString()),
             ),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('About Jiva AI'),
+              subtitle: const Text('Version 1.0.1 · Build 2'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showAboutJiva,
+            ),
+          ),
           const SizedBox(height: 12),
           Text(
             "Speech languages depend on your phone's speech service. "

@@ -1,0 +1,8 @@
+<resources>
+ <style name="LaunchTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+  <item name="android:windowSplashScreenBackground">@color/jiva_background</item>
+  <item name="android:windowSplashScreenAnimatedIcon">@drawable/jiva_splash_symbol</item>
+  <item name="android:windowSplashScreenIconBackgroundColor">@color/jiva_background</item>
+  <item name="android:windowLightStatusBar">false</item>
+ </style>
+</resources>

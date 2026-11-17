@@ -1,0 +1,30 @@
+{
+  "baseline_zip": "Jiva-AI-Assistance-Android-v1.0.1+2-JivaThemeSplashAbout-SOURCE.zip",
+  "project_folder": "Jiva-AI-Assistance-Android",
+  "same_version": "1.0.1+2",
+  "source_count": 189,
+  "output_count": 200,
+  "modified_files": [
+    "flutter/lib/main.dart"
+  ],
+  "added_files": [
+    "JIVA_UI_V2_RELEASE_NOTES.md",
+    "docs/ui-reference/01-home-dashboard.png",
+    "docs/ui-reference/02-compact-dashboard.png",
+    "docs/ui-reference/03-voice-settings.png",
+    "docs/ui-reference/04-reminders.png",
+    "docs/ui-reference/05-about-jiva-ai.png",
+    "docs/ui-reference/06-voice-popup.png",
+    "docs/ui-reference/README.md",
+    "flutter/lib/ui/jiva_about_screen.dart",
+    "flutter/lib/ui/jiva_widgets.dart",
+    "flutter/test/jiva_ui_layout_test.dart"
+  ],
+  "deleted_files": [],
+  "domain_service_changed": [],
+  "base_sha256": "298600bddf13097f83161081ed84754bb92e05ca585fd008206b4e2ee18525d3",
+  "flutter_analyze": "NOT RUN: SDK unavailable",
+  "flutter_test": "NOT RUN: SDK unavailable",
+  "android_build": "NOT RUN: SDK unavailable",
+  "github_push": false
+}

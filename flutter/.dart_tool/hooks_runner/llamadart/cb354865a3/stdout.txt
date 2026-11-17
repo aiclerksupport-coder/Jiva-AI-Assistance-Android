@@ -1,29 +1,23 @@
-Running `(cd C:\Users\acer\AppData\Local\Pub\Cache\hosted\pub.dev\llamadart-0.19.11\; PATH=C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin;C:\Users\acer\AppData\Local\Microsoft\WindowsApps\Microsoft.PowerShell_8wekyb3d8bbwe;C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin;C:\Program Files\Eclipse Adoptium\jdk-8.0.492.9-hotspot\bin;C:\Program Files (x86)\ChemOffice2002\Common\DLLs;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\MinGW\bin;C:\Program Files\dotnet\;C:\Program Files (x86)\dotnet\;C:\platform-tools;C:\Android;C:\Program Files (x86)\Danfoss Drives\Communication Module\bin;c:\apache-ant\bin;C:\Program Files\nodejs\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files\Git\cmd;E:\BoleToAI\tools;C:\Users\acer\AppData\Local\Programs\Python\Launcher\;C:\Users\acer\AppData\Local\Microsoft\WindowsApps;E:\DIY-Stake Flutter App\flutter\bin;C:\Users\acer\AppData\Local\Programs\Microsoft VS Code\bin;C:\flutter\flutter\bin;C:\Users\acer\AppData\Roaming\npm;C:\Users\acer\AppData\Local\Python\bin;C:\Users\acer\AppData\Local\Programs\Microsoft VS Code\bin\copilot-shim;C:\flutter\flutter\bin\mingit\cmd;C:\flutter\flutter\bin\mingit\cmd PROGRAMDATA=C:\ProgramData SYSTEMDRIVE=C: SYSTEMROOT=C:\WINDOWS TEMP=C:\Users\acer\AppData\Local\Temp TMP=C:\Users\acer\AppData\Local\Temp USERPROFILE=C:\Users\acer WINDIR=C:\WINDOWS C:\flutter\flutter\bin\cache\dart-sdk\bin\dart --packages=C:\Jiva-AI-Assistance-Android\Jiva-AI-Assistance-Android\flutter\.dart_tool\package_config.json C:\Jiva-AI-Assistance-Android\Jiva-AI-Assistance-Android\flutter\.dart_tool\hooks_runner\llamadart\cb354865a3\hook.dill --config=C:\Jiva-AI-Assistance-Android\Jiva-AI-Assistance-Android\flutter\.dart_tool\hooks_runner\llamadart\cb354865a3\input.json )`.
-INFO: 2026-11-17 02:36:17.270167: Hook Start: android-arm64
+Running `(cd C:\Users\acer\AppData\Local\Pub\Cache\hosted\pub.dev\llamadart-0.19.11\; PATH=C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin;C:\Users\acer\AppData\Local\Microsoft\WindowsApps\Microsoft.PowerShell_8wekyb3d8bbwe;C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin;C:\Program Files\Eclipse Adoptium\jdk-8.0.492.9-hotspot\bin;C:\Program Files (x86)\ChemOffice2002\Common\DLLs;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\MinGW\bin;C:\Program Files\dotnet\;C:\Program Files (x86)\dotnet\;C:\platform-tools;C:\Android;C:\Program Files (x86)\Danfoss Drives\Communication Module\bin;c:\apache-ant\bin;C:\Program Files\nodejs\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files\Git\cmd;E:\BoleToAI\tools;C:\Users\acer\AppData\Local\Programs\Python\Launcher\;C:\Users\acer\AppData\Local\Microsoft\WindowsApps;E:\DIY-Stake Flutter App\flutter\bin;C:\Users\acer\AppData\Local\Programs\Microsoft VS Code\bin;C:\flutter\flutter\bin;C:\Users\acer\AppData\Roaming\npm;C:\Users\acer\AppData\Local\Python\bin;C:\Users\acer\AppData\Local\Programs\Microsoft VS Code\bin\copilot-shim;C:\flutter\flutter\bin\mingit\cmd;C:\flutter\flutter\bin\mingit\cmd PROGRAMDATA=C:\ProgramData SYSTEMDRIVE=C: SYSTEMROOT=C:\WINDOWS TEMP=C:\Users\acer\AppData\Local\Temp TMP=C:\Users\acer\AppData\Local\Temp USERPROFILE=C:\Users\acer WINDIR=C:\WINDOWS C:\flutter\flutter\bin\cache\dart-sdk\bin\dart --packages=C:\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\Jiva-AI-Assistance-Android\flutter\.dart_tool\package_config.json C:\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\Jiva-AI-Assistance-Android\flutter\.dart_tool\hooks_runner\llamadart\cb354865a3\hook.dill --config=C:\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\Jiva-AI-Assistance-Android\flutter\.dart_tool\hooks_runner\llamadart\cb354865a3\input.json )`.
+INFO: 2026-11-17 11:24:05.515458: Hook Start: android-arm64
 
-INFO: 2026-11-17 02:36:17.296331: Selected native runtimes: llama_cpp, litert_lm.
+INFO: 2026-11-17 11:24:05.539460: Using native runtime source: leehack/llamadart-native@v0.9.0
 
-INFO: 2026-11-17 02:36:17.299331: Using native runtime source: leehack/llamadart-native@v0.9.0
+INFO: 2026-11-17 11:24:05.574595: Using cached native bundle: C:\Users\acer\AppData\Local\Pub\Cache\hosted\pub.dev\llamadart-0.19.11\.dart_tool\llamadart\native_bundles_v2\v0.9.0\android-arm64\extracted
 
-INFO: 2026-11-17 02:36:17.337015: Using cached native bundle: C:\Users\acer\AppData\Local\Pub\Cache\hosted\pub.dev\llamadart-0.19.11\.dart_tool\llamadart\native_bundles_v2\v0.9.0\android-arm64\extracted
+INFO: 2026-11-17 11:24:05.776356: Reporting native library `libggml-base.so` as code asset `package:llamadart/ggml-base`.
 
-INFO: 2026-11-17 02:36:17.609806: Reporting native library `libggml-base.so` as code asset `package:llamadart/ggml-base`.
+INFO: 2026-11-17 11:24:05.782380: Reporting native library `libggml-cpu-android_armv9.2_2.so` as code asset `package:llamadart/ggml-cpu-android_armv9_2_2`.
 
-INFO: 2026-11-17 02:36:17.613994: Reporting native library `libggml.so` as code asset `package:llamadart/ggml`.
+INFO: 2026-11-17 11:24:05.785381: Reporting native library `libllama.so` as code asset `package:llamadart/llama`.
 
-ge:llamadart/ggml-cpu-android_armv8_6_1`.
+INFO: 2026-11-17 11:24:05.822083: Reporting LiteRT-LM library `libLiteRtGpuAccelerator.so` as code asset `package:llamadart/litert_lm_LiteRtGpuAccelerator`.
 
-itert_lm\0.19.1-5\android/arm64
+intProvider`.
 
-INFO: 2026-11-17 02:36:17.655765: Reporting LiteRT-LM library `libGemmaModelConstraintProvider.so` as code asset `package:llamadart/litert_lm_GemmaModelConstraintProvider`.
+INFO: 2026-11-17 11:24:05.945738: Reporting LiteRT-LM library `libLiteRtLm.so` as code asset `package:llamadart/litert_lm_LiteRtLm`.
 
-INFO: 2026-11-17 02:36:17.666559: Reporting LiteRT-LM library `libLiteRtGpuAccelerator.so` as code asset `package:llamadart/litert_lm_LiteRtGpuAccelerator`.
+INFO: 2026-11-17 11:24:05.963743: Reporting LiteRT-LM library `libLiteRtWebGpuAccelerator.so` as code asset `package:llamadart/litert_lm_LiteRtWebGpuAccelerator`.
 
-INFO: 2026-11-17 02:36:17.747491: Reporting LiteRT-LM library `libLiteRtLm.so` as code asset `package:llamadart/litert_lm_LiteRtLm`.
-
-INFO: 2026-11-17 02:36:17.755673: Reporting LiteRT-LM library `libLiteRtOpenClAccelerator.so` as code asset `package:llamadart/litert_lm_LiteRtOpenClAccelerator`.
-
-INFO: 2026-11-17 02:36:17.780523: Reporting LiteRT-LM library `libLiteRtWebGpuAccelerator.so` as code asset `package:llamadart/litert_lm_LiteRtWebGpuAccelerator`.
-
-INFO: 2026-11-17 02:36:17.848023: Reporting LiteRT-LM library `libwebgpu_dawn.so` as code asset `package:llamadart/litert_lm_webgpu_dawn`.
+INFO: 2026-11-17 11:24:05.994962: Reporting LiteRT-LM library `libwebgpu_dawn.so` as code asset `package:llamadart/litert_lm_webgpu_dawn`.
 

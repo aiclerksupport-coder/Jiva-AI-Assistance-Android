@@ -1,33 +1,35 @@
-Running `(cd C:\Users\acer\AppData\Local\Pub\Cache\hosted\pub.dev\llamadart-0.19.11\; PATH=C:\Users\acer\AppData\Local\Microsoft\WindowsApps\Microsoft.PowerShell_8wekyb3d8bbwe;C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin;C:\Program Files\Eclipse Adoptium\jdk-8.0.492.9-hotspot\bin;C:\Program Files (x86)\ChemOffice2002\Common\DLLs;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\MinGW\bin;C:\Program Files\dotnet\;C:\Program Files (x86)\dotnet\;C:\platform-tools;C:\Android;C:\Program Files (x86)\Danfoss Drives\Communication Module\bin;c:\apache-ant\bin;C:\Program Files\nodejs\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files\Git\cmd;E:\BoleToAI\tools;C:\Users\acer\AppData\Local\Programs\Python\Launcher\;C:\Users\acer\AppData\Local\Microsoft\WindowsApps;E:\DIY-Stake Flutter App\flutter\bin;C:\Users\acer\AppData\Local\Programs\Microsoft VS Code\bin;C:\flutter\flutter\bin;C:\Users\acer\AppData\Roaming\npm;C:\Users\acer\AppData\Local\Python\bin;C:\Users\acer\AppData\Local\Programs\Microsoft VS Code\bin\copilot-shim;C:\flutter\flutter\bin\mingit\cmd PROGRAMDATA=C:\ProgramData SYSTEMDRIVE=C: SYSTEMROOT=C:\WINDOWS TEMP=C:\Users\acer\AppData\Local\Temp TMP=C:\Users\acer\AppData\Local\Temp USERPROFILE=C:\Users\acer WINDIR=C:\WINDOWS C:\flutter\flutter\bin\cache\dart-sdk\bin\dart --packages=C:\Jiva-AI-Assistance-Android\Jiva-AI-Assistance-Android\flutter\.dart_tool\package_config.json C:\Jiva-AI-Assistance-Android\Jiva-AI-Assistance-Android\flutter\.dart_tool\hooks_runner\llamadart\8e04c28b44\hook.dill --config=C:\Jiva-AI-Assistance-Android\Jiva-AI-Assistance-Android\flutter\.dart_tool\hooks_runner\llamadart\8e04c28b44\input.json )`.
-INFO: 2026-11-17 02:35:11.284457: Hook Start: windows-x64
+Running `(cd C:\Users\acer\AppData\Local\Pub\Cache\hosted\pub.dev\llamadart-0.19.11\; PATH=C:\Users\acer\AppData\Local\Microsoft\WindowsApps\Microsoft.PowerShell_8wekyb3d8bbwe;C:\Program Files\Eclipse Adoptium\jdk-17.0.19.10-hotspot\bin;C:\Program Files\Eclipse Adoptium\jdk-8.0.492.9-hotspot\bin;C:\Program Files (x86)\ChemOffice2002\Common\DLLs;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\MinGW\bin;C:\Program Files\dotnet\;C:\Program Files (x86)\dotnet\;C:\platform-tools;C:\Android;C:\Program Files (x86)\Danfoss Drives\Communication Module\bin;c:\apache-ant\bin;C:\Program Files\nodejs\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files\Git\cmd;E:\BoleToAI\tools;C:\Users\acer\AppData\Local\Programs\Python\Launcher\;C:\Users\acer\AppData\Local\Microsoft\WindowsApps;E:\DIY-Stake Flutter App\flutter\bin;C:\Users\acer\AppData\Local\Programs\Microsoft VS Code\bin;C:\flutter\flutter\bin;C:\Users\acer\AppData\Roaming\npm;C:\Users\acer\AppData\Local\Python\bin;C:\Users\acer\AppData\Local\Programs\Microsoft VS Code\bin\copilot-shim;C:\flutter\flutter\bin\mingit\cmd PROGRAMDATA=C:\ProgramData SYSTEMDRIVE=C: SYSTEMROOT=C:\WINDOWS TEMP=C:\Users\acer\AppData\Local\Temp TMP=C:\Users\acer\AppData\Local\Temp USERPROFILE=C:\Users\acer WINDIR=C:\WINDOWS C:\flutter\flutter\bin\cache\dart-sdk\bin\dart --packages=C:\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\Jiva-AI-Assistance-Android\flutter\.dart_tool\package_config.json C:\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\Jiva-AI-Assistance-Android\flutter\.dart_tool\hooks_runner\llamadart\8e04c28b44\hook.dill --config=C:\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\Jiva-AI-Assistance-Android\flutter\.dart_tool\hooks_runner\llamadart\8e04c28b44\input.json )`.
+INFO: 2026-11-17 11:22:44.579711: Hook Start: windows-x64
 
-INFO: 2026-11-17 02:35:11.307143: Selected native runtimes: llama_cpp, litert_lm.
+INFO: 2026-11-17 11:22:44.602937: Selected native runtimes: llama_cpp, litert_lm.
 
-INFO: 2026-11-17 02:35:11.309143: Using native runtime source: leehack/llamadart-native@v0.9.0
+INFO: 2026-11-17 11:22:44.606172: Using native runtime source: leehack/llamadart-native@v0.9.0
 
-INFO: 2026-11-17 02:35:11.344622: Using cached native bundle: C:\Users\acer\AppData\Local\Pub\Cache\hosted\pub.dev\llamadart-0.19.11\.dart_tool\llamadart\native_bundles_v2\v0.9.0\windows-x64\extracted
+INFO: 2026-11-17 11:22:44.644123: Using cached native bundle: C:\Users\acer\AppData\Local\Pub\Cache\hosted\pub.dev\llamadart-0.19.11\.dart_tool\llamadart\native_bundles_v2\v0.9.0\windows-x64\extracted
 
-INFO: 2026-11-17 02:35:11.433786: Reporting native library `ggml-base.dll` as code asset `package:llamadart/ggml-base`.
+INFO: 2026-11-17 11:22:44.719567: Reporting native library `ggml-base.dll` as code asset `package:llamadart/ggml-base`.
 
-INFO: 2026-11-17 02:35:11.449791: Using cached LiteRT-LM bundle: C:\Users\acer\AppData\Local\Pub\Cache\hosted\pub.dev\llamadart-0.19.11\.dart_tool\llamadart\litert_lm\0.19.1-5\windows/x64
+INFO: 2026-11-17 11:22:44.726637: Reporting native library `vcruntime140_1.dll` as code asset `package:llamadart/vcruntime140_1`.
 
-INFO: 2026-11-17 02:35:11.485214: Reporting LiteRT-LM library `LiteRtLm.dll` as code asset `package:llamadart/litert_lm_LiteRtLm`.
+.11\.dart_tool\llamadart\litert_lm\0.19.1-5\windows/x64
 
-INFO: 2026-11-17 02:35:11.518032: Reporting LiteRT-LM library `dxcompiler.dll` as code asset `package:llamadart/litert_lm_dxcompiler`.
+INFO: 2026-11-17 11:22:44.755639: Reporting LiteRT-LM library `LiteRtLm.dll` as code asset `package:llamadart/litert_lm_LiteRtLm`.
 
-INFO: 2026-11-17 02:35:11.532895: Reporting LiteRT-LM library `dxil.dll` as code asset `package:llamadart/litert_lm_dxil`.
+INFO: 2026-11-17 11:22:44.793480: Reporting LiteRT-LM library `dxcompiler.dll` as code asset `package:llamadart/litert_lm_dxcompiler`.
 
-INFO: 2026-11-17 02:35:11.566804: Reporting LiteRT-LM library `libLiteRtWebGpuAccelerator.dll` as code asset `package:llamadart/litert_lm_LiteRtWebGpuAccelerator`.
+INFO: 2026-11-17 11:22:44.801490: Reporting LiteRT-LM library `dxil.dll` as code asset `package:llamadart/litert_lm_dxil`.
 
-vider`.
+INFO: 2026-11-17 11:22:44.819488: Reporting LiteRT-LM library `libGemmaModelConstraintProvider.dll` as code asset `package:llamadart/litert_lm_GemmaModelConstraintProvider`.
 
-INFO: 2026-11-17 02:35:11.584709: Reporting LiteRT-LM library `libwebgpu_dawn.dll` as code asset `package:llamadart/litert_lm_webgpu_dawn`.
+INFO: 2026-11-17 11:22:44.838489: Reporting LiteRT-LM library `libLiteRtWebGpuAccelerator.dll` as code asset `package:llamadart/litert_lm_LiteRtWebGpuAccelerator`.
 
-INFO: 2026-11-17 02:35:11.683326: Bundling the llama.cpp copy of `msvcp140.dll` (14.51.36247.0) for both runtimes; the LiteRT-LM copy is 14.51.36247.0.
+INFO: 2026-11-17 11:22:44.859488: Reporting LiteRT-LM library `libwebgpu_dawn.dll` as code asset `package:llamadart/litert_lm_webgpu_dawn`.
 
-INFO: 2026-11-17 02:35:11.697893: Bundling the llama.cpp copy of `vcruntime140.dll` (14.51.36247.0) for both runtimes; the LiteRT-LM copy is 14.51.36247.0.
+INFO: 2026-11-17 11:22:44.887487: Bundling the llama.cpp copy of `msvcp140.dll` (14.51.36247.0) for both runtimes; the LiteRT-LM copy is 14.51.36247.0.
 
-INFO: 2026-11-17 02:35:11.728545: Reporting LiteRT-LM library `webgpu_dawn.dll` as code asset `package:llamadart/litert_lm_webgpu_dawn_2`.
+INFO: 2026-11-17 11:22:44.901570: Bundling the llama.cpp copy of `vcruntime140.dll` (14.51.36247.0) for both runtimes; the LiteRT-LM copy is 14.51.36247.0.
 
-s 14.51.36247.0.
+INFO: 2026-11-17 11:22:44.913577: Bundling the llama.cpp copy of `vcruntime140_1.dll` (14.51.36247.0) for both runtimes; the LiteRT-LM copy is 14.51.36247.0.
+
+INFO: 2026-11-17 11:22:44.931571: Reporting LiteRT-LM library `webgpu_dawn.dll` as code asset `package:llamadart/litert_lm_webgpu_dawn_2`.
 

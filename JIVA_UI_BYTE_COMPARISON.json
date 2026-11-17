@@ -1,0 +1,30 @@
+{
+  "source_baseline": "Jiva-AI-Assistance-Android(1).zip (archive filename only, project root is Jiva-AI-Assistance-Android)",
+  "source_file_count": 175,
+  "output_file_count": 188,
+  "modified_files": [
+    "flutter/android/app/src/main/AndroidManifest.xml",
+    "flutter/android/app/src/main/res/values/styles.xml",
+    "flutter/lib/main.dart",
+    "flutter/pubspec.yaml"
+  ],
+  "added_files": [
+    "JIVA_UI_RELEASE_NOTES.md",
+    "flutter/android/app/src/main/res/drawable-nodpi/jiva_launcher.png",
+    "flutter/android/app/src/main/res/drawable-nodpi/jiva_splash_fullhd.jpg",
+    "flutter/android/app/src/main/res/drawable-nodpi/jiva_splash_symbol.png",
+    "flutter/android/app/src/main/res/drawable/jiva_launch_background.xml",
+    "flutter/android/app/src/main/res/values-v31/styles.xml",
+    "flutter/android/app/src/main/res/values/colors.xml",
+    "flutter/assets/branding/jiva_logo_header.png",
+    "flutter/assets/branding/jiva_logo_master.png",
+    "flutter/assets/branding/jiva_splash_fullhd.jpg",
+    "flutter/assets/branding/jiva_symbol.png",
+    "flutter/lib/ui/jiva_splash.dart",
+    "flutter/lib/ui/jiva_theme.dart"
+  ],
+  "deleted_files": [],
+  "dart_domain_service_modifications": [],
+  "flutter_build_verified": false,
+  "github_push_performed": false
+}

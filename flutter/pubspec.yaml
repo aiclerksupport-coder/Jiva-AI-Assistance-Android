@@ -1,7 +1,7 @@
 name: jiva_assistance
 description: Flutter counterpart to the Jiva Android assistant.
 publish_to: none
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ">=3.12.0 <4.0.0"
@@ -40,3 +40,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/branding/

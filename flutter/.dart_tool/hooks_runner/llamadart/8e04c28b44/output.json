@@ -2,7 +2,7 @@
   "assets": [
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\ggml-base.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\ggml-base.dll",
         "id": "package:llamadart/ggml-base",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -12,7 +12,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\ggml-cpu.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\ggml-cpu.dll",
         "id": "package:llamadart/ggml-cpu",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -22,7 +22,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\ggml-vulkan.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\ggml-vulkan.dll",
         "id": "package:llamadart/ggml-vulkan",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -32,7 +32,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\ggml.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\ggml.dll",
         "id": "package:llamadart/ggml",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -42,7 +42,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\llama-common.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\llama-common.dll",
         "id": "package:llamadart/llama-common",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -52,7 +52,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\llama.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\llama.dll",
         "id": "package:llamadart/llamadart",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -62,7 +62,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\llamadart.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\llamadart.dll",
         "id": "package:llamadart/llamadart_wrapper",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -72,7 +72,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\msvcp140.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\msvcp140.dll",
         "id": "package:llamadart/msvcp140",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -82,7 +82,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\mtmd.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\mtmd.dll",
         "id": "package:llamadart/mtmd",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -92,7 +92,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\vcomp140.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\vcomp140.dll",
         "id": "package:llamadart/vcomp140",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -102,7 +102,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\vcruntime140.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\vcruntime140.dll",
         "id": "package:llamadart/vcruntime140",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -112,7 +112,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\vcruntime140_1.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\vcruntime140_1.dll",
         "id": "package:llamadart/vcruntime140_1",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -122,7 +122,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\LiteRtLm.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\LiteRtLm.dll",
         "id": "package:llamadart/litert_lm_LiteRtLm",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -132,7 +132,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\dxcompiler.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\dxcompiler.dll",
         "id": "package:llamadart/litert_lm_dxcompiler",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -142,7 +142,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\dxil.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\dxil.dll",
         "id": "package:llamadart/litert_lm_dxil",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -152,7 +152,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\libGemmaModelConstraintProvider.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\libGemmaModelConstraintProvider.dll",
         "id": "package:llamadart/litert_lm_GemmaModelConstraintProvider",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -162,7 +162,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\libLiteRtWebGpuAccelerator.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\libLiteRtWebGpuAccelerator.dll",
         "id": "package:llamadart/litert_lm_LiteRtWebGpuAccelerator",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -172,7 +172,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\libwebgpu_dawn.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\libwebgpu_dawn.dll",
         "id": "package:llamadart/litert_lm_webgpu_dawn",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -182,7 +182,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\vcruntime140_threads.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\vcruntime140_threads.dll",
         "id": "package:llamadart/litert_lm_vcruntime140_threads",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -192,7 +192,7 @@
     },
     {
       "encoding": {
-        "file": "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\webgpu_dawn.dll",
+        "file": "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\hooks_runner\\shared\\llamadart\\build\\8e04c28b44\\llamadart_bin\\webgpu_dawn.dll",
         "id": "package:llamadart/litert_lm_webgpu_dawn_2",
         "link_mode": {
           "type": "dynamic_loading_bundle"
@@ -203,8 +203,8 @@
   ],
   "assets_for_linking": {},
   "dependencies": [
-    "C:\\Jiva-AI-Assistance-Android\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\package_graph.json"
+    "C:\\Jiva-AI-Assistance-Android-v1.0.1+2-PremiumResponsiveUI-REPLACEMENT-SOURCE\\Jiva-AI-Assistance-Android\\flutter\\.dart_tool\\package_graph.json"
   ],
   "status": "success",
-  "timestamp": "2026-11-17 02:35:11.000"
+  "timestamp": "2026-11-17 11:22:44.000"
 }
