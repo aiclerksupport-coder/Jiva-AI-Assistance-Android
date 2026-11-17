@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible Jiva AI issue without sharing private data.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: implementation
+    attributes:
+      label: Affected implementation
+      options:
+        - Flutter primary app
+        - Kotlin prototype
+        - Documentation or build tooling
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem without API keys, contacts, PINs, private screenshots or personal content.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open...\n2. Tap...\n3. Observe..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version or commit
+      placeholder: "1.0.1+2 / commit SHA"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: "Device model, Android version"
+  - type: textarea
+    id: checks
+    attributes:
+      label: Tests, logs or screenshots (redacted)
+      description: State exactly what passed/failed; do not upload secrets.
